@@ -18,6 +18,7 @@ const lms = (extra: NavItem[] = []): NavSection => ({ title: 'Pembelajaran', ite
   { label: 'Nilai', to: 'nilai', icon: GraduationCap, perm: 'grade:read' },
   { label: 'Absensi', to: 'absensi', icon: CalendarCheck, perm: 'attendance:read' },
   { label: 'e-Rapor', to: 'rapor', icon: BookMarked, perm: 'rapor:read', feature: 'rapor' },
+  { label: 'Peta Konsep', to: 'konsep', icon: Sparkles, perm: 'grade:read' },
   ...extra,
 ] });
 const komunikasi: NavSection = { title: 'Komunikasi', items: [
