@@ -12,6 +12,7 @@ import attendance from './attendance/routes';
 import communication from './communication/routes';
 import dashboard from './dashboard/routes';
 import landing from './landing/routes';
+import exams from './exams/routes';
 
 /** Authenticated modules mounted under /api/v1 (order matters only for overlapping paths). */
 export const modules: { path: string; router: Router }[] = [
@@ -28,4 +29,5 @@ export const modules: { path: string; router: Router }[] = [
   { path: '/communication', router: communication },
   { path: '/dashboard', router: dashboard },
   { path: '/landing', router: landing },
+  { path: '/exams', router: exams },
 ];

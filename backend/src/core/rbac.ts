@@ -93,7 +93,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   ],
   GURU: [
     'academic:read', 'enrollment:read', 'user:read', ...all('material'), 'assignment:read', 'assignment:write', 'assignment:grade', ...all('question'), 'quiz:read', 'quiz:write', 'quiz:grade',
-    'exam:read', 'exam:proctor', 'exam:grade', 'grade:read', 'grade:write', 'grade:recap', 'attendance:read', 'attendance:write', 'attendance:self', 'attendance:permit_review', 'rapor:read', 'rapor:write',
+    'exam:read', 'exam:write', 'exam:schedule', 'exam:proctor', 'exam:grade', 'grade:read', 'grade:write', 'grade:recap', 'attendance:read', 'attendance:write', 'attendance:self', 'attendance:permit_review', 'rapor:read', 'rapor:write',
     'announcement:read', 'announcement:write', 'notification:read', 'discipline:read', 'discipline:write', 'extracurricular:read', 'extracurricular:members', 'achievement:read', 'achievement:write',
     'payroll:slip_self', 'library:read', 'library:loan', 'asset:read', 'asset:book', 'dashboard:read', 'letter:read', 'internship:read', 'internship:journal_verify', 'competency:read', 'competency:assess', 'pdp:self',
   ],
