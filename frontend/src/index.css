@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --radius-xl2: 1rem;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+}
+
+:root {
+  /* Brand ramp — overridden at runtime from tenant branding (see lib/brand.ts). */
+  --brand-50: #f0fdfa; --brand-100: #ccfbf1; --brand-200: #99f6e4; --brand-300: #5eead4; --brand-400: #2dd4bf;
+  --brand-500: #14b8a6; --brand-600: #0d9488; --brand-700: #0f766e; --brand-800: #115e59; --brand-900: #134e4a;
+  --accent-400: #fbbf24; --accent-500: #f59e0b; --accent-600: #d97706;
+  --surface: #ffffff; --surface-2: #f7f8fa; --surface-3: #eef0f3;
+  --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+  --line: #e5e8ec;
+  color-scheme: light;
+}
+.dark {
+  --surface: #111418; --surface-2: #171b21; --surface-3: #1f242c;
+  --ink: #f1f5f9; --ink-2: #b6c0cc; --ink-3: #6b7683;
+  --line: #262c35;
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-surface-2 text-ink font-sans antialiased; }
+* { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
+
+/* Base form controls */
+.input {
+  @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none transition
+    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+.card { @apply rounded-2xl border border-line bg-surface shadow-soft; }
+.chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium; }
+.link { @apply text-brand-700 hover:underline dark:text-brand-300; }
+.prose-sinau h1 { @apply text-2xl font-bold mt-6 mb-3; }
+.prose-sinau h2 { @apply text-xl font-semibold mt-5 mb-2; }
+.prose-sinau h3 { @apply text-lg font-semibold mt-4 mb-2; }
+.prose-sinau p { @apply my-3 leading-7; }
+.prose-sinau ul { @apply list-disc pl-6 my-3 space-y-1; }
+.prose-sinau ol { @apply list-decimal pl-6 my-3 space-y-1; }
+.prose-sinau blockquote { @apply border-l-4 border-brand-300 pl-4 italic text-ink-2 my-3; }
+.prose-sinau code { @apply rounded bg-surface-3 px-1.5 py-0.5 text-[0.9em]; }
+.prose-sinau pre { @apply rounded-xl bg-surface-3 p-4 overflow-x-auto my-3; }
+.prose-sinau a { @apply text-brand-700 hover:underline dark:text-brand-300; }
+.prose-sinau table { @apply w-full text-sm my-3; }
+.prose-sinau th, .prose-sinau td { @apply border border-line px-2 py-1; }
+
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+.skeleton { @apply rounded-lg bg-surface-3; background-image: linear-gradient(90deg, transparent 0, rgb(255 255 255 / 0.25) 40%, transparent 80%); background-size: 800px 100%; animation: shimmer 1.4s infinite linear; }
+
+@media print { .no-print { display: none !important; } body { background: white; } }
