@@ -90,6 +90,10 @@ export const presentQuestion = (row: Record<string, unknown>, hideKey = false) =
   const options = typeof row.options === 'string' ? safeJson(row.options) : row.options;
   const out: Record<string, unknown> = { ...row, options, answer_key: typeof row.answer_key === 'string' ? safeJson(row.answer_key) ?? row.answer_key : row.answer_key, tags: typeof row.tags === 'string' ? safeJson(row.tags) : row.tags, image_url: fileUrl(row.image_file_id as string | null) };
   if (hideKey) {
+    if (row.type === 'MATCH' && Array.isArray(out.answer_key)) {
+      const pairs = out.answer_key as { left: string; right: string }[];
+      out.match = { lefts: pairs.map((p) => p.left), rights: [...new Set(pairs.map((p) => p.right))].sort() };
+    }
     out.answer_key = undefined; out.explanation = undefined;
     if (Array.isArray(options)) out.options = options.map((o: { key: string; text: string }) => ({ key: o.key, text: o.text }));
   }
