@@ -1,0 +1,18 @@
+{
+  "name": "sinau",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SINAU - LMS + SIS multi-tenant untuk lembaga pendidikan Indonesia",
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "start": "npm run start --prefix backend",
+    "typecheck": "npm run typecheck --prefix backend && npm run typecheck --prefix frontend",
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "db:seed:demo": "npm run db:seed:demo --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
