@@ -1,6 +1,6 @@
 # PRD — SINAU LMS+SIS (Multi-tenant)
 
-Versi 0.2 · 21 September 2026 · Status: **disetujui arah, menunggu konfirmasi milestone**
+Versi 1.0 · 21 September 2026 · Status: **M1–M8 selesai** (lihat §11)
 
 Keputusan yang sudah diambil (21 Sep 2026):
 - **Multi-tenant sejak awal** — Super Admin mendaftarkan lembaga; isolasi data per tenant.
@@ -263,6 +263,8 @@ Perkiraan volume: ±90 tabel, ±250 endpoint, ±120 halaman. M1 adalah fondasi y
 | Q4 | E-mail: outbox file (seperti referensi) atau SMTP nyata dari awal? | Outbox dulu, SMTP via `.env` |
 | Q5 | Dev: dua proses (4008 + Vite 4009 proxy) diterima? Produksi tetap satu port. | Ya |
 
+Semua Q1–Q5 dijalankan sesuai rekomendasi. Redis ditunda atas permintaan pemilik produk.
+
 ## 10. Risiko
 | Risiko | Mitigasi |
 |---|---|
@@ -272,3 +274,17 @@ Perkiraan volume: ±90 tabel, ±250 endpoint, ±120 halaman. M1 adalah fondasi y
 | Beban ujian serentak tanpa Redis | Prepared statements + index; autosave batched; uji beban 300 user sebelum M2 rilis |
 | MariaDB vs MySQL di server | DDL portabel MySQL 8 (pelajaran deploy e-learning) |
 | Satu proses = single point | PM2 restart otomatis; SSE dan job worker toleran restart (state di MySQL) |
+
+## 11. Status implementasi (21 Sep 2026)
+
+| M | Status | Catatan |
+|---|---|---|
+| M1–M8 | **Selesai** | 8 migrasi, 122 tabel `tbl_sinau_*`, 26 router API, 68 halaman; smoke test API per milestone lolos |
+| Deploy | Selesai | `deploy/nginx.conf`, `deploy/ecosystem.config.cjs`, `DEPLOY.md`, `README.md`, `PENGUJIAN.md`, `docs/erd.md`, `backend/database/schema.sql` |
+
+Yang sengaja **tidak** dibangun (di luar keputusan/ditunda):
+- Redis / multi-proses (Q2) — SSE & job worker in-process, cukup untuk 1 instance PM2.
+- SMTP nyata — mode outbox (`backend/outbox/mail.log`); kunci `MAIL_MODE` disiapkan.
+- Routing subdomain per lembaga — slug URL `/s/<slug>` dipakai; subdomain via redirect Nginx (DEPLOY.md §7).
+- UI konfigurasi widget dashboard — endpoint `PUT /dashboard/config` ada, dashboard memakai susunan bawaan per peran.
+- Uji beban 300 pengguna serentak — belum dilakukan.
