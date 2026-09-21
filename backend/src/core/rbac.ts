@@ -103,7 +103,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
     'announcement:read', 'announcement:write', 'notification:read', 'dashboard:read', 'report:read', 'payroll:slip_self', 'letter:read', 'pdp:self',
   ],
   KEUANGAN: [...all('finance'), 'payroll:read', 'payroll:write', 'payroll:approve_finance', 'payroll:slip_self', 'user:read', 'academic:read', 'enrollment:read', 'asset:read', 'announcement:read', 'notification:read', 'dashboard:read', 'report:read', 'report:export', 'attendance:self', 'letter:read', 'pdp:self'],
-  AUDITOR: [...READ_ALL, 'audit:read', 'report:export', 'pdp:self'],
+  AUDITOR: [...READ_ALL, 'audit:read', 'report:export', 'pdp:self', 'payroll:slip_self', 'attendance:self'],
   SISWA: [
     'material:read', 'assignment:read', 'assignment:submit', 'quiz:read', 'quiz:attempt', 'exam:read', 'exam:attempt', 'grade:read', 'attendance:read', 'attendance:self', 'attendance:permit_submit',
     'rapor:read', 'announcement:read', 'notification:read', 'extracurricular:read', 'achievement:read', 'finance:read', 'library:read', 'library:loan', 'internship:read', 'internship:journal_write',

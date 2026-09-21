@@ -51,8 +51,10 @@ Perintah lain: `npm run typecheck`, `npm run db:snapshot --prefix backend` (perb
 | `superadmin` | `superadmin123` | dibuat otomatis saat migrasi (ubah lewat `BOOTSTRAP_SUPERADMIN_*` di `.env`, ganti setelah login) |
 | `admin.smk1` | `demo12345` | Admin Sekolah tenant demo |
 | `kepsek.smk1` | `demo12345` | Kepala Sekolah + Guru |
+| `wakepsek.smk1` | `demo12345` | Wakil Kepala Sekolah + Guru |
 | `guru.dimas`, `guru.rina`, `guru.andi` | `demo12345` | Guru (andi juga Kaprodi) |
 | `bk.sari` / `keu.wati` | `demo12345` | Guru BK / Staf Keuangan |
+| `staf.budi` / `auditor.smk1` | `demo12345` | Tenaga Kependidikan / Auditor |
 | `siswa.01` … `siswa.22` | `demo12345` | Siswa (X RPL 1, X TKJ 1) |
 | `wali.01` | `demo12345` | Wali murid siswa.01 |
 

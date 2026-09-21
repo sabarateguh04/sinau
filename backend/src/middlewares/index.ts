@@ -67,11 +67,14 @@ export const requireRole = (...roles: Role[]): RequestHandler => (req, _res, nex
 export const maintenanceGate: RequestHandler = async (req, _res, next) => {
   const u = req.auth;
   if (!u || u.isSuperAdmin) return next();
-  const s = await queryOne<{ maintenance: number; maintenance_message: string | null } & Row>(
-    `SELECT maintenance, maintenance_message FROM \`${T('tenant_settings')}\` WHERE tenant_id IN (?, ?) AND maintenance = 1 LIMIT 1`, [u.tenantId, PLATFORM_TENANT_ID],
+  const s = await queryOne<{ tenant_id: string; maintenance: number; maintenance_message: string | null } & Row>(
+    `SELECT tenant_id, maintenance, maintenance_message FROM \`${T('tenant_settings')}\` WHERE tenant_id IN (?, ?) AND maintenance = 1 ORDER BY tenant_id = ? DESC LIMIT 1`, [u.tenantId, PLATFORM_TENANT_ID, PLATFORM_TENANT_ID],
   );
-  if (s) return next(new HttpError(503, 'MAINTENANCE', s.maintenance_message || 'Sistem sedang dalam pemeliharaan'));
-  next();
+  if (!s) return next();
+  // Tenant-level maintenance never locks out the tenant's own admins (they must be able to switch it off);
+  // platform-level maintenance is bypassed by SUPER_ADMIN only.
+  if (s.tenant_id === u.tenantId && u.roles.includes('ADMIN_SEKOLAH')) return next();
+  next(new HttpError(503, 'MAINTENANCE', s.maintenance_message || 'Sistem sedang dalam pemeliharaan'));
 };
 
 type Part = 'body' | 'query' | 'params';
