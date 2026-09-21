@@ -22,6 +22,7 @@ import sarana from './sarana/routes';
 import ppdb from './ppdb/routes';
 import smk from './smk/routes';
 import compliance from './compliance/routes';
+import rollover from './rollover/routes';
 
 /** Authenticated modules mounted under /api/v1 (order matters only for overlapping paths). */
 export const modules: { path: string; router: Router }[] = [
@@ -47,5 +48,6 @@ export const modules: { path: string; router: Router }[] = [
   { path: '/sarana', router: sarana },
   { path: '/ppdb', router: ppdb },
   { path: '/smk', router: smk },
+  { path: '/rollover', router: rollover },
   { path: '/', router: compliance },
 ];

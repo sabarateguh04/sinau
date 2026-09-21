@@ -53,6 +53,10 @@ export const PAGES: PageDef[] = [
   { path: 'uji-kompetensi', component: L(() => import('./smk/StudentCompetency')) },
   { path: 'pdp', component: L(() => import('./compliance/Pdp')) },
   { path: 'dapodik', component: L(() => import('./compliance/Dapodik')) },
+  // M8
+  { path: 'landing', component: L(() => import('./admin/LandingCms')) },
+  { path: 'akademik/rollover', component: L(() => import('./academic/Rollover')) },
+  { path: 'persetujuan', component: L(() => import('./admin/Approvals')) },
   { path: 'absensi', component: L(() => import('./attendance/Attendance')) },
   { path: 'absensi/izin', component: L(() => import('./attendance/Permits')) },
   { path: 'absensi/staf', component: L(() => import('./attendance/StaffAttendance')) },
