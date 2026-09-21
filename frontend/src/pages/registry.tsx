@@ -44,6 +44,10 @@ export const PAGES: PageDef[] = [
   { path: 'tagihan', component: L(() => import('./finance/StudentInvoices')) },
   { path: 'payroll', component: L(() => import('./finance/Payroll')) },
   { path: 'payroll/slip', component: L(() => import('./finance/Slips')) },
+  // Sarana & PPDB
+  { path: 'aset', component: L(() => import('./sarana/Assets')) },
+  { path: 'perpustakaan', component: L(() => import('./sarana/Library')) },
+  { path: 'ppdb', component: L(() => import('./sarana/PpdbAdmin')) },
   { path: 'absensi', component: L(() => import('./attendance/Attendance')) },
   { path: 'absensi/izin', component: L(() => import('./attendance/Permits')) },
   { path: 'absensi/staf', component: L(() => import('./attendance/StaffAttendance')) },

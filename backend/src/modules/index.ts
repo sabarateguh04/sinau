@@ -18,6 +18,8 @@ import analytics from './analytics/routes';
 import kesiswaan from './kesiswaan/routes';
 import finance from './finance/routes';
 import payroll from './payroll/routes';
+import sarana from './sarana/routes';
+import ppdb from './ppdb/routes';
 
 /** Authenticated modules mounted under /api/v1 (order matters only for overlapping paths). */
 export const modules: { path: string; router: Router }[] = [
@@ -40,4 +42,6 @@ export const modules: { path: string; router: Router }[] = [
   { path: '/kesiswaan', router: kesiswaan },
   { path: '/finance', router: finance },
   { path: '/payroll', router: payroll },
+  { path: '/sarana', router: sarana },
+  { path: '/ppdb', router: ppdb },
 ];
