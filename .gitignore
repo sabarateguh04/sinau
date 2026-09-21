@@ -6,5 +6,8 @@ backend/uploads/
 backend/outbox/
 backend/storage/
 *.log
+*.tsbuildinfo
 .DS_Store
 Thumbs.db
+# dokumen konsep internal (repo publik)
+SINAU-Konsep-Produk.pdf

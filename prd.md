@@ -288,3 +288,13 @@ Yang sengaja **tidak** dibangun (di luar keputusan/ditunda):
 - Routing subdomain per lembaga — slug URL `/s/<slug>` dipakai; subdomain via redirect Nginx (DEPLOY.md §7).
 - UI konfigurasi widget dashboard — endpoint `PUT /dashboard/config` ada, dashboard memakai susunan bawaan per peran.
 - Uji beban 300 pengguna serentak — belum dilakukan.
+
+## 12. Alesha AI & dokumen konsep produk (21 Sep 2026)
+
+Dokumen `SINAU-Konsep-Produk.pdf` (Draft 1.0) menempatkan AI "Alesha" sebagai lapisan intelijen, bukan fitur tambahan. Pemetaan lengkap ada di `docs/kesesuaian-konsep.md`. Yang dibangun sekarang:
+- Widget Alesha (chat + suara) di seluruh aplikasi dan situs publik; backend `modules/alesha` dengan engine **dummy** yang menjawab dari data tenant nyata dan selalu menyebut sumber; `ALESHA_API_URL` = titik sambung engine nyata.
+- 10 mode tutor sesuai konsep; mode Socratic otomatis saat siswa sedang mengerjakan kuis/ujian (integritas akademik).
+- Teaching Insight guru (konsep belum terserap + miskonsepsi berlabel + rekomendasi + keyakinan), draf RPP & soal (bertanda perlu verifikasi), ringkasan lembaga, persona publik.
+- Feature flag `alesha` per tenant.
+
+Belum (roadmap konsep fase 1–3): engine LLM nyata, graf konsep berjenjang, aliran peristiwa belajar, jalur adaptif, gamifikasi, kredensial terbuka, SSO/LTI, langganan.

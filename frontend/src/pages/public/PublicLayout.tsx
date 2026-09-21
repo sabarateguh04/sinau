@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, homeOf } from '@/store/auth';
 import { Button } from '@/components/ui';
+import { AleshaWidget } from '@/components/AleshaWidget';
 
 export default function PublicLayout() {
   const { user, activeRole } = useAuth();
@@ -20,7 +21,8 @@ export default function PublicLayout() {
         </header>
       )}
       <main className="flex-1"><Outlet /></main>
-      <footer className="border-t border-line py-6 text-center text-xs text-ink-3">© {new Date().getFullYear()} SINAU — LMS & sistem informasi lembaga pendidikan.</footer>
+      <footer className="border-t border-line py-6 text-center text-xs text-ink-3">© {new Date().getFullYear()} SINAU — Learn. Teach. Improve. Grow.</footer>
+      <AleshaWidget />
     </div>
   );
 }

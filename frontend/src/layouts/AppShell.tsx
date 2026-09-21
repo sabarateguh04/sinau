@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AleshaWidget } from '@/components/AleshaWidget';
 import { Menu, X, Bell, ChevronsLeft, ChevronsRight, LogOut, Moon, Sun, Monitor, Building2, ChevronDown, UserCircle2, Search, Wifi, WifiOff } from 'lucide-react';
 import { useAuth, rolePrefix, homeOf } from '@/store/auth';
 import { useUi, toast } from '@/store/ui';
@@ -93,6 +94,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <AleshaWidget />
     </div>
   );
 
