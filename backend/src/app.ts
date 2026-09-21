@@ -11,6 +11,7 @@ import { modules } from './modules';
 import authRoutes from './modules/auth/routes';
 import publicRoutes from './modules/public/routes';
 import aleshaRoutes from './modules/alesha/routes';
+import guideRoutes from './modules/guide/routes';
 import systemRoutes from './modules/system/routes';
 
 export function createApp() {
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/v1', api);
 
   // Single-port deployment: serve the built frontend with SPA fallback.
+  app.use(guideRoutes); // /panduan — panduan pengguna di balik kode akses (bukan bagian SPA)
   if (config.serveFrontend && fs.existsSync(path.join(config.frontendDist, 'index.html'))) {
     app.use(express.static(config.frontendDist, { maxAge: '1h', index: false }));
     app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(config.frontendDist, 'index.html')));

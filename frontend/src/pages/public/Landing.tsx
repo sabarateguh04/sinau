@@ -33,8 +33,12 @@ export default function Landing() {
     <div>
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-brand-50 via-surface-2 to-amber-50 dark:from-brand-900/30 dark:via-surface-2 dark:to-surface-2" />
-        <div className="absolute -right-32 top-10 -z-10 h-96 w-96 rounded-full bg-accent-400/20 blur-3xl" />
+        <div className="absolute inset-0 -z-10 overflow-hidden bg-gradient-to-br from-brand-50 via-surface-2 to-amber-50 dark:from-brand-900/30 dark:via-surface-2 dark:to-surface-2">
+          <div className="hero-grid" />
+          <div className="blob -left-24 -top-24 h-[28rem] w-[28rem] bg-brand-400/60 dark:bg-brand-500/30" />
+          <div className="blob blob-2 -right-32 top-10 h-[30rem] w-[30rem] bg-accent-400/50 dark:bg-accent-500/25" />
+          <div className="blob blob-3 bottom-[-10rem] left-1/3 h-[24rem] w-[24rem] bg-brand-600/40 dark:bg-brand-400/20" />
+        </div>
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:py-20">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <span className="chip bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200"><Sparkles className="mr-1 inline h-3.5 w-3.5" />Learn. Teach. Improve. Grow.</span>
@@ -43,7 +47,7 @@ export default function Landing() {
             <div className="mt-7 flex flex-wrap gap-3"><Link to="/login"><Button size="lg" icon={<ArrowRight className="h-4 w-4" />}>Masuk</Button></Link><Link to="/portal"><Button size="lg" variant="outline" icon={<BookOpen className="h-4 w-4" />}>Jelajahi materi publik</Button></Link></div>
             {stats && <div className="mt-8 flex gap-8 text-sm text-ink-2"><span><b className="text-xl text-ink">{stats.tenants}</b> lembaga</span><span><b className="text-xl text-ink">{Number(stats.students).toLocaleString('id-ID')}</b> siswa</span><span><b className="text-xl text-ink">{Number(stats.materials).toLocaleString('id-ID')}</b> materi</span></div>}
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}><AleshaShowcase /></motion.div>
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative"><div className="orbit -z-10" /><AleshaShowcase /></motion.div>
         </div>
       </section>
 
