@@ -8,6 +8,7 @@ import { Dict } from '@/lib/types';
 
 /** Feature switches. Keys match nav `feature` flags; missing key = enabled. */
 const FEATURES: { key: string; label: string; desc: string }[] = [
+  { key: 'alesha', label: 'Alesha AI', desc: 'Asisten AI (tutor siswa, insight kelas guru, ringkasan lembaga). Tanpa engine nyata berjalan dalam mode demo.' },
   { key: 'exam', label: 'Ujian online', desc: 'Ujian terjadwal dengan token sesi, autosave, dan auto-submit.' },
   { key: 'rapor', label: 'e-Rapor', desc: 'Konsolidasi nilai, P5, persetujuan kepsek, PDF.' },
   { key: 'finance', label: 'Keuangan', desc: 'Tagihan SPP, pembayaran, denda, rekonsiliasi, arus kas.' },

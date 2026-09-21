@@ -8,6 +8,7 @@ Ditulis dari nol (clean-room) berdasarkan `prd.md`: **Express 5 + TypeScript + M
 
 | Domain | Yang ada |
 |---|---|
+| **Alesha AI** | Lapisan intelijen (engine demo, titik sambung `ALESHA_API_URL`): tutor siswa 10 mode (Explain … Socratic otomatis saat ujian), Quiz Me dari bank soal + label miskonsepsi, Teaching Insight untuk guru, draf RPP & soal, ringkasan lembaga, persona publik (PPDB/berita). Chat + suara (Web Speech). Lihat `docs/kesesuaian-konsep.md` |
 | Platform | Multi-tenant, super admin, branding per lembaga (warna/logo/tema), feature flags, maintenance mode, audit log, job worker in-process, notifikasi realtime (SSE), outbox e-mail |
 | Akun & RBAC | 15 peran, izin `modul:aksi` dengan override per tenant/pengguna, JWT + refresh token berputar, undangan, impor Excel, wali murid ↔ siswa, onboarding |
 | Akademik | Tahun ajaran, jurusan, mapel, ruang, kelas, penugasan guru×mapel, jadwal (deteksi bentrok), kalender, kurikulum, alumni, **tutup tahun** (kenaikan/kelulusan, pre-check → dry-run → eksekusi → rollback) |
@@ -42,7 +43,7 @@ Mode pengembangan (API 4008 + Vite HMR 4009 yang mem-proxy `/api`):
 npm run dev            # buka http://localhost:4009
 ```
 
-Perintah lain: `npm run typecheck`, `npm run db:snapshot --prefix backend` (perbarui `backend/database/schema.sql` & `docs/erd.md`).
+Perintah lain: `npm run typecheck`, `npm run db:snapshot --prefix backend` (perbarui `backend/database/schema.sql` & `docs/erd.md`), `npm run db:dump --prefix backend` / `npm run db:import --prefix backend` (pindahkan data antar lingkungan lewat `deploy/db_sinau-data.sql`).
 
 ## Akun
 
@@ -65,8 +66,8 @@ Akun demo hanya ada setelah `npm run db:seed:demo`. Situs publik demo: `http://l
 ```
 backend/   Express 5 API + host frontend statis; src/database/migrations = sumber kebenaran skema
 frontend/  Vite + React; src/pages/registry.tsx = daftar halaman; src/lib/nav.ts = menu per peran
-deploy/    nginx.conf, ecosystem.config.cjs (PM2)
-docs/      erd.md (Mermaid), backend/database/schema.sql (snapshot)
+deploy/    nginx.conf, ecosystem.config.cjs (PM2), env.server + setup-env.sh, db_sinau-data.sql (data demo/lokal)
+docs/      erd.md (Mermaid), kesesuaian-konsep.md (pemetaan ke dokumen konsep produk)
 prd.md     spesifikasi produk & keputusan desain
 ```
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, GraduationCap, Sparkles, ShieldCheck, WifiLow } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, Sparkles, ShieldCheck, WifiLow, Bot, BrainCircuit, Map, PenTool } from 'lucide-react';
 import { useAuth, homeOf } from '@/store/auth';
 import { Button, Field, Input } from '@/components/ui';
 import { api, toApiError } from '@/lib/api';
@@ -50,12 +50,17 @@ export default function Login({ mode = 'login' }: { mode?: 'login' | 'reset' | '
         <div className="absolute -bottom-32 -right-24 h-[28rem] w-[28rem] rounded-full bg-accent-500/30 blur-3xl" />
         <div className="relative flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black">S</div><div><div className="text-xl font-extrabold tracking-tight">SINAU</div><div className="text-xs text-white/70">{platform?.branding?.tagline ?? 'Platform belajar & manajemen sekolah'}</div></div></div>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="relative space-y-6">
-          <h1 className="max-w-md text-4xl font-extrabold leading-tight">Satu akun, satu sumber data, untuk seluruh sekolah.</h1>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide"><Sparkles className="h-3.5 w-3.5 text-accent-400" /> Learn. Teach. Improve. Grow.</div>
+          <h1 className="max-w-md text-4xl font-extrabold leading-tight">Satu platform, satu data belajar, satu lapisan intelijen.</h1>
+          <p className="max-w-md text-sm text-white/80">Bukan LMS dengan chatbot. <b className="text-white">Alesha AI</b> membaca seluruh data belajar lalu mengubahnya menjadi pemahaman, rekomendasi, dan tindakan — untuk siswa, guru, dan lembaga.</p>
           <ul className="space-y-3 text-sm text-white/85">
-            <li className="flex items-center gap-3"><GraduationCap className="h-5 w-5 text-accent-400" /> Materi, tugas, kuis, ujian, nilai, rapor — terhubung.</li>
-            <li className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-accent-400" /> Data tiap lembaga terisolasi, izin per peran.</li>
-            <li className="flex items-center gap-3"><WifiLow className="h-5 w-5 text-accent-400" /> Ringan di jaringan lemah, ada mode hemat data.</li>
-            <li className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-accent-400" /> Peta penguasaan konsep per siswa.</li>
+            <li className="flex items-start gap-3"><Bot className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span><b className="text-white">Tutor pribadi 24 jam</b> — Explain, Simplify, Quiz Me, hingga mode Socratic saat tugas berjalan.</span></li>
+            <li className="flex items-start gap-3"><Map className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span><b className="text-white">Absorption Heatmap</b> — nilai dipecah menjadi peta penyerapan per konsep, miskonsepsi kelas terdeteksi dini.</span></li>
+            <li className="flex items-start gap-3"><PenTool className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span><b className="text-white">Asisten mengajar</b> — draf rancangan pembelajaran & soal berlabel miskonsepsi; AI mengusulkan, guru memutuskan.</span></li>
+            <li className="flex items-start gap-3"><BrainCircuit className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span><b className="text-white">Analisis berakhir pada tindakan</b> — setiap wawasan menyebut jumlah bukti dan langkah konkret untuk besok.</span></li>
+            <li className="flex items-start gap-3"><GraduationCap className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span>Materi, tugas, kuis, ujian, nilai, rapor, keuangan, PPDB — terhubung dalam satu data.</span></li>
+            <li className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span>Data tiap lembaga terisolasi, izin per peran, privasi anak sebagai bawaan (UU PDP).</span></li>
+            <li className="flex items-start gap-3"><WifiLow className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" /><span>Ringan di jaringan lemah, ada mode hemat data.</span></li>
           </ul>
           {platform?.stats && <div className="flex gap-8 pt-2 text-sm"><Stat n={platform.stats.tenants} l="lembaga" /><Stat n={platform.stats.students} l="siswa" /><Stat n={platform.stats.materials} l="materi" /></div>}
         </motion.div>

@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:migrate": "tsx src/database/migrate.ts",
     "db:seed:demo": "tsx src/database/seed/demo.ts",
-    "db:snapshot": "tsx scripts/schemaSnapshot.ts"
+    "db:snapshot": "tsx scripts/schemaSnapshot.ts",
+    "db:dump": "tsx scripts/dbSync.ts dump",
+    "db:import": "tsx scripts/dbSync.ts import"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

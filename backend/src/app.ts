@@ -10,6 +10,7 @@ import { authenticate, maintenanceGate, globalLimiter, notFoundHandler, errorHan
 import { modules } from './modules';
 import authRoutes from './modules/auth/routes';
 import publicRoutes from './modules/public/routes';
+import aleshaRoutes from './modules/alesha/routes';
 import systemRoutes from './modules/system/routes';
 
 export function createApp() {
@@ -27,6 +28,7 @@ export function createApp() {
   api.use(globalLimiter);
   api.use('/auth', authRoutes);
   api.use('/public', publicRoutes); // tenant landing, PPDB public, shared materials — no login
+  api.use('/alesha', aleshaRoutes); // Alesha AI — public persona without token, personalised with one
   api.use('/', systemRoutes); // health, files, events (SSE), jobs, notifications, regions
 
   // Everything else: authenticated + tenant maintenance gate.

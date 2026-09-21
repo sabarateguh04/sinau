@@ -80,3 +80,7 @@ Catatan:
 ## 7. Kondisi data setelah uji
 
 Database berisi data demo + jejak pengujian yang realistis (materi, tugas, kuis, sesi ujian, rapor disahkan, tagihan/pembayaran, run payroll dibayar, pinjaman perpustakaan, PPDB satu periode, prakerin & sertifikat, berita landing). Tenant uji isolasi sudah dihapus; maintenance mode nonaktif. Silakan langsung login dengan akun di `README.md`.
+
+## 8. Tambahan 21 Sep (sore): Alesha AI
+
+Smoke `smoke-alesha`: 22 percakapan lintas persona — publik (PPDB, berita, token tidak valid → persona publik), siswa (tugas, konsep lemah, jadwal, tagihan, **Quiz Me + cek jawaban + label miskonsepsi**, mode Simplify), guru (Teaching Insight, draf RPP, draf soal, belum dinilai), admin (ringkasan, tunggakan), wali (perkembangan, kehadiran) — **lolos**. Dua bug ditemukan saat uji & diperbaiki: kolom `display_name` (ada di `tenant_branding`, bukan `tenants`) dan `ORDER BY` alias agregat (ditolak MariaDB/MySQL). Roundtrip `db:dump` → `db:migrate` + `db:import` ke database kosong: 122 tabel, 1794 baris, identik.

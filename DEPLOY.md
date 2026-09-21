@@ -25,36 +25,30 @@ Migrasi juga bisa membuat database sendiri bila user MySQL punya hak `CREATE`.
 
 ```bash
 sudo mkdir -p /opt/sinau && sudo chown $USER /opt/sinau
-git clone <repo> /opt/sinau && cd /opt/sinau
+git clone https://github.com/sabarateguh04/sinau.git /opt/sinau && cd /opt/sinau
 npm run install:all
-cp backend/.env.example backend/.env && nano backend/.env
+bash deploy/setup-env.sh <DB_PASSWORD>      # → backend/.env dari deploy/env.server (172.20.4.220:4008, user db_sinau) + JWT secret acak
 ```
 
-`.env` minimal untuk produksi:
+`deploy/env.server` sudah berisi nilai server (PORT 4008, `APP_URL`/`CORS_ORIGIN` = `http://172.20.4.220:4008`, `DB_USER=db_sinau`, `DB_NAME=db_sinau`); hanya password DB & JWT yang diisi skrip supaya tidak pernah masuk git. Ubah nilai lain langsung di `backend/.env` bila perlu.
 
-```
-NODE_ENV=production
-PORT=4008
-APP_URL=https://sinau.example.id
-CORS_ORIGIN=https://sinau.example.id
-DB_HOST=127.0.0.1  DB_USER=sinau  DB_PASSWORD=...  DB_NAME=db_sinau
-JWT_ACCESS_SECRET=<openssl rand -hex 32>
-JWT_REFRESH_SECRET=<openssl rand -hex 32>
-UPLOAD_ROOT=/var/lib/sinau/uploads
-BOOTSTRAP_SUPERADMIN_PASSWORD=<ganti>
-ENABLE_JOBS=true
-```
-
-`.env` tidak pernah di-commit. Buat folder upload: `sudo mkdir -p /var/lib/sinau/uploads && sudo chown $USER /var/lib/sinau/uploads`.
+**Membawa data dari laptop (demo + hasil uji):**
 
 ```bash
-npm run build          # frontend/dist + backend/dist
-npm run db:migrate     # idempoten; aman diulang setiap deploy
+npm run build && npm run db:migrate            # skema (MySQL 8 aman — DDL portabel)
+npm run db:import --prefix backend             # isi dari deploy/db_sinau-data.sql (122 tabel; TRUNCATE lalu INSERT)
+```
+
+Di laptop, perbarui berkas dump dengan `npm run db:dump --prefix backend` lalu commit. Berkas unggahan (`backend/uploads/`) tidak ikut git — salin manual dengan `rsync`/`scp` bila ada.
+
+Bila nanti dipasang di domain publik (bukan IP internal), ubah di `backend/.env`: `APP_URL`/`CORS_ORIGIN` ke `https://domain-anda`, `UPLOAD_ROOT` ke folder di luar repo (mis. `/var/lib/sinau/uploads`), dan `BOOTSTRAP_SUPERADMIN_PASSWORD` sebelum migrasi pertama. `.env` tidak pernah di-commit.
+
+```bash
 mkdir -p logs
 pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 ```
 
-Cek: `curl -s localhost:4008/api/v1/health` → `{"ok":true,...}`.
+Cek: `curl -s localhost:4008/api/v1/health` → `{"status":"ok",...}`, lalu buka `http://172.20.4.220:4008` (Nginx/TLS opsional untuk jaringan internal).
 
 ## 3. Nginx
 
