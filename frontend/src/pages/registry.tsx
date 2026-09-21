@@ -48,6 +48,11 @@ export const PAGES: PageDef[] = [
   { path: 'aset', component: L(() => import('./sarana/Assets')) },
   { path: 'perpustakaan', component: L(() => import('./sarana/Library')) },
   { path: 'ppdb', component: L(() => import('./sarana/PpdbAdmin')) },
+  // SMK & kepatuhan
+  { path: 'prakerin', component: L(() => import('./smk/Internships')) },
+  { path: 'uji-kompetensi', component: L(() => import('./smk/StudentCompetency')) },
+  { path: 'pdp', component: L(() => import('./compliance/Pdp')) },
+  { path: 'dapodik', component: L(() => import('./compliance/Dapodik')) },
   { path: 'absensi', component: L(() => import('./attendance/Attendance')) },
   { path: 'absensi/izin', component: L(() => import('./attendance/Permits')) },
   { path: 'absensi/staf', component: L(() => import('./attendance/StaffAttendance')) },
