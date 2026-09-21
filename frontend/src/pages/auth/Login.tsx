@@ -45,20 +45,20 @@ export default function Login({ mode = 'login' }: { mode?: 'login' | 'reset' | '
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-brand-800 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:p-10 xl:p-12">
+      <div className="relative hidden overflow-hidden bg-brand-800 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:p-8 xl:p-12">
         <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-600/50 blur-3xl" />
         <div className="absolute -bottom-32 -right-24 h-[28rem] w-[28rem] rounded-full bg-accent-500/30 blur-3xl" />
         <div className="relative flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black">S</div><div><div className="text-xl font-extrabold tracking-tight">SINAU</div><div className="text-xs text-white/70">{platform?.branding?.tagline ?? 'Learn. Teach. Improve. Grow.'}</div></div></div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="relative space-y-7">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="relative space-y-5">
           <div>
-            <h1 className="max-w-lg text-3xl font-extrabold leading-tight xl:text-4xl">Satu data belajar,<br />satu lapisan intelijen.</h1>
-            <p className="mt-3 max-w-md text-sm text-white/75">Bukan LMS dengan chatbot. <b className="text-white">Alesha AI</b> membaca seluruh data belajar dan mengubahnya menjadi tindakan untuk siswa, guru, dan lembaga.</p>
+            <h1 className="max-w-lg text-2xl font-extrabold leading-tight xl:text-4xl">Satu data belajar,<br />satu lapisan intelijen.</h1>
+            <p className="mt-2 max-w-md text-sm text-white/75">Bukan LMS dengan chatbot. <b className="text-white">Alesha AI</b> membaca seluruh data belajar dan mengubahnya menjadi tindakan untuk siswa, guru, dan lembaga.</p>
           </div>
-          <AleshaDemo />
           <ul className="grid max-w-lg grid-cols-2 gap-2 text-xs">
             {FEATS.map(({ icon: Icon, t, d }) => <li key={t} className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2"><Icon className="h-4 w-4 shrink-0 text-accent-400" /><span><b className="block text-white">{t}</b><span className="text-white/60">{d}</span></span></li>)}
           </ul>
-          {platform?.stats && <div className="flex gap-8 text-sm"><Stat n={platform.stats.tenants} l="lembaga" /><Stat n={platform.stats.students} l="siswa" /><Stat n={platform.stats.materials} l="materi" /></div>}
+          <div className="[@media(max-height:700px)]:hidden"><AleshaDemo /></div>
+          {platform?.stats && <div className="flex gap-8 text-sm [@media(max-height:860px)]:hidden"><Stat n={platform.stats.tenants} l="lembaga" /><Stat n={platform.stats.students} l="siswa" /><Stat n={platform.stats.materials} l="materi" /></div>}
         </motion.div>
         <div className="relative text-xs text-white/60">© {new Date().getFullYear()} SINAU · <Link to="/welcome" className="underline">Portal publik</Link></div>
       </div>
@@ -104,13 +104,13 @@ const FEATS = [
 function AleshaDemo() {
   const bars: [string, number][] = [['Konsep dasar', 91], ['Pecahan senilai', 87], ['Soal cerita', 48]];
   return (
-    <div className="max-w-md rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur">
-      <div className="mb-3 flex items-center gap-2 text-xs"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-brand-500 to-accent-500"><Sparkles className="h-3.5 w-3.5" /></span><b>Alesha</b><span className="text-white/60">· Teaching Insight</span></div>
+    <div className="max-w-md rounded-2xl border border-white/15 bg-white/10 p-3.5 shadow-xl backdrop-blur">
+      <div className="mb-2 flex items-center gap-2 text-xs"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-brand-500 to-accent-500"><Sparkles className="h-3.5 w-3.5" /></span><b>Alesha</b><span className="text-white/60">· Teaching Insight</span></div>
       <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="ml-auto w-fit rounded-2xl rounded-br-md bg-white px-3 py-1.5 text-xs text-ink">Konsep mana yang belum terserap kelas saya?</motion.div>
       <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.1 }} className="mt-2 rounded-2xl rounded-bl-md bg-brand-900/60 px-3 py-2 text-xs">
         <p className="mb-2 text-white/85"><b className="text-white">Soal cerita pecahan</b> — 68% siswa memilih pengecoh yang sama.</p>
         <ul className="space-y-1.5">{bars.map(([l, v], i) => <li key={l} className="flex items-center gap-2"><span className="w-24 shrink-0 text-white/70">{l}</span><span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15"><motion.span initial={{ width: 0 }} animate={{ width: `${v}%` }} transition={{ delay: 1.4 + i * 0.15, duration: 0.6 }} className={`block h-full rounded-full ${v < 60 ? 'bg-red-400' : v < 80 ? 'bg-amber-300' : 'bg-emerald-400'}`} /></span><span className="w-8 text-right font-semibold">{v}%</span></li>)}</ul>
-        <p className="mt-2 text-[11px] text-white/70">Saran: ulang pecahan senilai dengan model batang, lalu 3 soal kontras. <span className="text-white/50">128 percobaan · keyakinan sedang</span></p>
+        <p className="mt-1.5 text-[11px] text-white/70">Saran: ulang pecahan senilai dengan model batang, lalu 3 soal kontras. <span className="text-white/50">128 percobaan</span></p>
       </motion.div>
     </div>
   );
