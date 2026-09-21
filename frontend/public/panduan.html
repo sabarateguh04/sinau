@@ -1,0 +1,331 @@
+<title>Panduan SINAU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg: #f5faf8; --surface: #ffffff; --surface-2: #eaf4f1; --ink: #12211f; --muted: #57706c; --line: #d6e5e1;
+    --teal: #0f766e; --teal-ink: #0b5c56; --teal-soft: #d9f0eb; --amber: #b45309; --amber-soft: #fdf1e3; --danger: #b42318; --ok: #15803d;
+    --shadow: 0 1px 2px rgba(18,33,31,.06), 0 8px 24px -12px rgba(15,118,110,.25);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d1514; --surface: #142020; --surface-2: #1a2926; --ink: #e6f0ee; --muted: #9db4b0; --line: #243632;
+    --teal: #38d1bd; --teal-ink: #7fe6d8; --teal-soft: #113a35; --amber: #f2a93b; --amber-soft: #33240f; --danger: #f87171; --ok: #4ade80;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d1514; --surface: #142020; --surface-2: #1a2926; --ink: #e6f0ee; --muted: #9db4b0; --line: #243632;
+    --teal: #38d1bd; --teal-ink: #7fe6d8; --teal-soft: #113a35; --amber: #f2a93b; --amber-soft: #33240f; --danger: #f87171; --ok: #4ade80;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif; font-size: 17px; line-height: 1.55; padding-inline: 16px; padding-block: 0 64px; }
+  h1, h2, h3, h4 { font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif; text-wrap: balance; letter-spacing: -.01em; margin: 0; }
+  h1 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800; line-height: 1.08; }
+  h2 { font-size: 1.6rem; font-weight: 800; margin-block: 0 .35em; }
+  h3 { font-size: 1.15rem; font-weight: 700; }
+  p { margin: 0; max-width: 68ch; }
+  a { color: var(--teal-ink); }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: .86em; }
+  code { background: var(--surface-2); padding: .1em .4em; border-radius: 6px; border: 1px solid var(--line); }
+  .wrap { max-width: 1180px; margin-inline: auto; }
+  .eyebrow { font-family: "Plus Jakarta Sans", sans-serif; font-size: .74rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--teal); }
+  /* header */
+  header.hero { padding-block: 44px 28px; border-bottom: 1px solid var(--line); display: grid; gap: 22px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark { width: 44px; height: 44px; border-radius: 12px; background: var(--teal); color: #fff; display: grid; place-items: center; font: 800 1.4rem "Plus Jakarta Sans", sans-serif; }
+  .brand .name { font: 800 1.15rem "Plus Jakarta Sans", sans-serif; line-height: 1.1; }
+  .brand .tag { color: var(--muted); font-size: .9rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px 22px; color: var(--muted); font-size: .95rem; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .lead { font-size: 1.15rem; max-width: 60ch; color: var(--muted); }
+  .addr { display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow); }
+  .addr .mono { font-weight: 600; color: var(--teal-ink); }
+  /* layout */
+  .layout { display: grid; grid-template-columns: 1fr; gap: 40px; padding-top: 28px; }
+  @media (min-width: 1024px) { .layout { grid-template-columns: 220px minmax(0, 1fr); } }
+  nav.toc { display: none; }
+  @media (min-width: 1024px) { nav.toc { display: block; position: sticky; top: 24px; align-self: start; font-size: .92rem; } }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; border-left: 2px solid var(--line); }
+  nav.toc a { display: block; padding: 6px 12px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; margin-left: -2px; }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); border-left-color: var(--teal); outline: none; }
+  main { display: grid; gap: 56px; min-width: 0; }
+  section { scroll-margin-top: 24px; display: grid; gap: 18px; }
+  section > p { color: var(--muted); }
+  /* tiles */
+  .tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 6px; }
+  .tile h3 { font-size: 1.02rem; }
+  .tile p { font-size: .95rem; color: var(--muted); }
+  .cycle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: "Plus Jakarta Sans", sans-serif; font-size: .88rem; font-weight: 700; }
+  .cycle span { padding: 6px 12px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .cycle span.ai { background: var(--teal); color: #fff; }
+  .cycle i { color: var(--muted); font-style: normal; }
+  /* steps */
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+  ol.steps li::before { content: counter(s); width: 30px; height: 30px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-ink); font: 700 .9rem "Plus Jakarta Sans", sans-serif; display: grid; place-items: center; }
+  ol.steps b { font-weight: 600; }
+  .note { border-left: 3px solid var(--amber); background: var(--amber-soft); padding: 12px 16px; border-radius: 0 12px 12px 0; font-size: .97rem; }
+  .note.ok { border-color: var(--ok); background: var(--surface-2); }
+  /* table */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "Plus Jakarta Sans", sans-serif; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td .mono { font-weight: 600; }
+  /* roles */
+  .roles { display: grid; gap: 16px; }
+  .role { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .role header { display: grid; gap: 4px; padding: 16px 20px; border-bottom: 1px solid var(--line); grid-template-columns: 1fr; }
+  @media (min-width: 720px) { .role header { grid-template-columns: 1fr auto; align-items: center; } }
+  .role header h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .role .pill { font: 600 .74rem "JetBrains Mono", monospace; background: var(--teal-soft); color: var(--teal-ink); border-radius: 999px; padding: 3px 9px; }
+  .role .desc { color: var(--muted); font-size: .95rem; margin-top: 2px; }
+  .role .acct { font-size: .88rem; color: var(--muted); text-align: left; }
+  @media (min-width: 720px) { .role .acct { text-align: right; } }
+  .role .acct .mono { color: var(--ink); font-weight: 600; }
+  .menus { padding: 14px 20px 18px; display: grid; gap: 10px; }
+  .group { display: grid; grid-template-columns: 1fr; gap: 4px 12px; }
+  @media (min-width: 720px) { .group { grid-template-columns: 130px 1fr; } }
+  .group .g { font: 700 .74rem "Plus Jakarta Sans", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-top: 5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: .86rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+  /* flows */
+  .flows { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .flow { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+  .flow ol { margin: 0; padding-left: 1.2em; display: grid; gap: 5px; font-size: .95rem; }
+  .flow .who { display: inline-block; font: 600 .72rem "Plus Jakarta Sans", sans-serif; background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 1px 6px; margin-right: 4px; vertical-align: middle; }
+  /* alesha */
+  .alesha { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .alesha { grid-template-columns: 1fr 1fr; } }
+  .chat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+  .chat .top { background: var(--teal); color: #fff; padding: 10px 14px; font: 700 .9rem "Plus Jakarta Sans", sans-serif; display: flex; gap: 8px; align-items: center; }
+  .chat .top small { font-weight: 500; opacity: .85; }
+  .chat .body { padding: 14px; display: grid; gap: 8px; font-size: .93rem; }
+  .b { max-width: 88%; padding: 8px 12px; border-radius: 14px; line-height: 1.45; }
+  .b.me { margin-left: auto; background: var(--teal); color: #fff; border-bottom-right-radius: 4px; }
+  .b.ai { background: var(--surface-2); border-bottom-left-radius: 4px; }
+  .b .src { display: block; font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  .modes { display: grid; gap: 6px; font-size: .93rem; }
+  .modes div { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .modes b { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; }
+  ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  @media print { nav.toc { display: none; } body { padding-inline: 0; } .role, .flow, .tile { break-inside: avoid; } }
+  @media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="brand"><div class="mark">S</div><div><div class="name">SINAU</div><div class="tag">Learn. Teach. Improve. Grow.</div></div></div>
+    <div>
+      <div class="eyebrow">Panduan pengguna</div>
+      <h1>Satu platform untuk belajar, mengajar, dan mengelola lembaga.</h1>
+      <p class="lead" style="margin-top:12px">Panduan ringkas untuk pimpinan dan pengguna: cara masuk, akun uji coba, peran beserta menunya, alur kerja utama, dan asisten AI <b>Alesha</b>.</p>
+    </div>
+    <div class="meta"><span>Versi <b>1.0</b></span><span>Diperbarui <b>22 September 2026</b></span><span>Status <b>siap uji coba (data demo)</b></span></div>
+    <div class="addr"><span>🌐</span><span>Alamat aplikasi: <span class="mono">http://172.20.4.220:4008</span> <span style="color:var(--muted)">· situs publik: <span class="mono">/welcome</span></span></span></div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Daftar isi"><ol>
+      <li><a href="#sekilas">Sekilas SINAU</a></li>
+      <li><a href="#masuk">Cara masuk</a></li>
+      <li><a href="#akun">Akun uji coba</a></li>
+      <li><a href="#peran">Peran &amp; menu</a></li>
+      <li><a href="#alur">Alur kerja utama</a></li>
+      <li><a href="#alesha">Alesha AI</a></li>
+      <li><a href="#publik">Situs publik</a></li>
+      <li><a href="#tips">Tips &amp; keamanan</a></li>
+    </ol></nav>
+
+    <main>
+      <section id="sekilas">
+        <div class="eyebrow">01 · Sekilas</div>
+        <h2>Apa itu SINAU</h2>
+        <p>SINAU ("belajar", bahasa Jawa) adalah platform pembelajaran dan sistem informasi sekolah <b>multi-lembaga</b>: satu instalasi melayani banyak sekolah dengan data yang terpisah, tampilan (logo/warna) sendiri, dan hak akses per peran. Semua modul menulis ke satu data yang sama, sehingga AI dapat membaca lintas modul tanpa integrasi tambahan.</p>
+        <div class="cycle"><span>Materi</span><i>→</i><span>Pembelajaran</span><i>→</i><span>Aktivitas</span><i>→</i><span>Evaluasi</span><i>→</i><span class="ai">Analisis AI</span><i>→</i><span class="ai">Rekomendasi</span></div>
+        <div class="tiles">
+          <div class="tile"><h3>Pembelajaran (LMS)</h3><p>Materi, tugas, kuis, bank soal berlabel konsep, ujian online bertoken, nilai, e-Rapor PDF, presensi (manual/QR), peta penguasaan konsep.</p></div>
+          <div class="tile"><h3>Administrasi sekolah (SIS)</h3><p>Data induk & jadwal, kesiswaan (BK, disiplin, ekskul, prestasi, surat), keuangan & payroll, sarana & perpustakaan, PPDB online, prakerin & uji kompetensi SMK, tutup tahun ajaran.</p></div>
+          <div class="tile"><h3>Alesha AI</h3><p>Lapisan intelijen: tutor siswa 24 jam, insight kelas untuk guru, ringkasan untuk pimpinan. Menjawab dari data lembaga dan selalu menyebut sumbernya. Saat ini <b>mode demo</b>.</p></div>
+          <div class="tile"><h3>Kepatuhan</h3><p>Pelindungan data pribadi (UU PDP): persetujuan, ekspor, hapus/anonimisasi, retensi. Ekspor Dapodik. Audit log semua aksi penting.</p></div>
+        </div>
+      </section>
+
+      <section id="masuk">
+        <div class="eyebrow">02 · Mulai</div>
+        <h2>Cara masuk</h2>
+        <ol class="steps">
+          <li><div><b>Buka alamat aplikasi</b> di browser (Chrome/Edge/Firefox terbaru, laptop atau ponsel): <code>http://172.20.4.220:4008</code>. Anda akan melihat halaman <i>welcome</i>; klik <b>Masuk</b> di kanan atas.</div></li>
+          <li><div><b>Isi nama pengguna dan kata sandi</b> yang diberikan admin sekolah (atau salah satu akun uji coba di bawah).</div></li>
+          <li><div><b>Pilih peran</b> bila akun Anda punya lebih dari satu (mis. Kepala Sekolah yang juga Guru). Peran bisa diganti kapan saja dari menu profil di kanan atas.</div></li>
+          <li><div><b>Dashboard</b> terbuka sesuai peran. Alamat halaman selalu berawalan peran, mis. <code>/guru/materi</code>, <code>/siswa/tugas</code>, <code>/admin/pengguna</code>.</div></li>
+        </ol>
+        <div class="note">Lupa kata sandi → tautan <b>Lupa kata sandi?</b> di halaman masuk mengirim tautan reset ke e-mail terdaftar. Siswa dan wali tidak mendaftar sendiri; akun dibuat oleh Admin Sekolah (satu-satu, impor Excel, atau otomatis dari PPDB).</div>
+      </section>
+
+      <section id="akun">
+        <div class="eyebrow">03 · Uji coba</div>
+        <h2>Akun uji coba</h2>
+        <p>Lembaga demo: <b>SMKN 1 Contoh</b> (<code>smkn1-demo</code>), dua kelas (X RPL 1, X TKJ 1) dengan materi, kuis, ujian, rapor, tagihan, dan PPDB yang sudah terisi. Kata sandi semua akun demo: <code>demo12345</code>.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Peran</th><th>Nama pengguna</th><th>Kata sandi</th><th>Coba apa</th></tr></thead>
+          <tbody>
+            <tr><td>Super Admin (platform)</td><td class="mono">superadmin</td><td class="mono">superadmin123</td><td>Daftar lembaga, pindah lembaga, template peran, audit</td></tr>
+            <tr><td>Admin Sekolah</td><td class="mono">admin.smk1</td><td class="mono">demo12345</td><td>Pengguna, akademik, landing page, PPDB, tutup tahun</td></tr>
+            <tr><td>Kepala Sekolah (+Guru)</td><td class="mono">kepsek.smk1</td><td class="mono">demo12345</td><td>Dashboard KPI, inbox <b>Persetujuan</b>, sahkan rapor & payroll</td></tr>
+            <tr><td>Wakil Kepala Sekolah (+Guru)</td><td class="mono">wakepsek.smk1</td><td class="mono">demo12345</td><td>Akademik & kesiswaan</td></tr>
+            <tr><td>Guru</td><td class="mono">guru.dimas</td><td class="mono">demo12345</td><td>Materi, tugas, kuis, ujian, nilai, absensi, rapor, Alesha insight</td></tr>
+            <tr><td>Guru + Kaprodi</td><td class="mono">guru.andi</td><td class="mono">demo12345</td><td>Prakerin, uji kompetensi</td></tr>
+            <tr><td>Guru BK</td><td class="mono">bk.sari</td><td class="mono">demo12345</td><td>Konseling, kedisiplinan, izin</td></tr>
+            <tr><td>Staf Keuangan</td><td class="mono">keu.wati</td><td class="mono">demo12345</td><td>Tagihan, pembayaran, kuitansi, payroll</td></tr>
+            <tr><td>Tenaga Kependidikan</td><td class="mono">staf.budi</td><td class="mono">demo12345</td><td>Aset, perpustakaan, presensi diri</td></tr>
+            <tr><td>Auditor</td><td class="mono">auditor.smk1</td><td class="mono">demo12345</td><td>Baca-saja semua laporan & keuangan</td></tr>
+            <tr><td>Siswa</td><td class="mono">siswa.01 … siswa.22</td><td class="mono">demo12345</td><td>Kerjakan tugas/kuis/ujian, lihat nilai & tagihan, tanya Alesha</td></tr>
+            <tr><td>Wali Murid (anak: siswa.01)</td><td class="mono">wali.01</td><td class="mono">demo12345</td><td>Ringkasan anak: nilai, absensi, rapor, tagihan</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note ok">Akun demo hanya untuk uji coba. Sebelum dipakai sungguhan, ganti kata sandi <code>superadmin</code> dan buat lembaga baru lewat Super Admin → Lembaga.</div>
+      </section>
+
+      <section id="peran">
+        <div class="eyebrow">04 · Hak akses</div>
+        <h2>Peran &amp; menu</h2>
+        <p>Lima belas peran bawaan. Menu di bawah adalah yang <b>benar-benar tampil</b> di sidebar masing-masing peran pada pengaturan izin standar (diambil langsung dari aplikasi). Admin Sekolah dapat mengubah izin per peran atau per orang di menu <b>Peran &amp; Izin</b> — menu akan mengikuti otomatis.</p>
+        <div class="roles" id="roles"></div>
+      </section>
+
+      <section id="alur">
+        <div class="eyebrow">05 · Proses</div>
+        <h2>Alur kerja utama</h2>
+        <p>Enam proses yang paling sering dipakai; setiap langkah menyebut peran yang mengerjakannya.</p>
+        <div class="flows">
+          <div class="flow"><h3>Pembelajaran harian</h3><ol>
+            <li><span class="who">Guru</span>Materi → tulis/unggah, terbitkan ke kelas.</li>
+            <li><span class="who">Guru</span>Tugas → buat dengan tenggat; Kuis → pilih soal dari Bank Soal, terbitkan.</li>
+            <li><span class="who">Siswa</span>Kerjakan dari menu Tugas/Kuis; Alesha siap membantu (mode Socratic saat mengerjakan).</li>
+            <li><span class="who">Guru</span>Nilai pengumpulan; kuis dinilai otomatis → rekap di Nilai & Peta Konsep.</li>
+          </ol></div>
+          <div class="flow"><h3>Ujian online</h3><ol>
+            <li><span class="who">Guru</span>Ujian → paket soal → buat sesi (kelas, waktu) → dapat <b>token</b>.</li>
+            <li><span class="who">Siswa</span>Masuk sesi dengan token; jawaban tersimpan otomatis; pindah tab tercatat sebagai pelanggaran.</li>
+            <li><span class="who">Guru</span>Pantau, perpanjang waktu, paksa kumpul bila perlu → hasil & analisis butir.</li>
+          </ol></div>
+          <div class="flow"><h3>e-Rapor</h3><ol>
+            <li><span class="who">Wali kelas</span>e-Rapor → generate dari nilai → edit catatan & P5 → ajukan.</li>
+            <li><span class="who">Kepsek</span>Persetujuan → sahkan (per kelas).</li>
+            <li><span class="who">Siswa / Wali</span>Lihat & unduh PDF setelah disahkan.</li>
+          </ol></div>
+          <div class="flow"><h3>Keuangan &amp; payroll</h3><ol>
+            <li><span class="who">Keuangan</span>Jenis Biaya → Tagihan (generate massal per kelas) → Pembayaran & kuitansi PDF; denda otomatis lewat aturan.</li>
+            <li><span class="who">Siswa / Wali</span>Lihat tagihan & kuitansi di menu Tagihan.</li>
+            <li><span class="who">Keuangan</span>Payroll → hitung (PPh21, BPJS) → validasi → <span class="who">Kepsek</span>setujui → bayar → slip PDF.</li>
+          </ol></div>
+          <div class="flow"><h3>PPDB (penerimaan siswa baru)</h3><ol>
+            <li><span class="who">Admin</span>PPDB → buat periode (kuota, syarat, jalur).</li>
+            <li><span class="who">Calon</span>Daftar dari situs publik <code>/s/&lt;lembaga&gt;/ppdb</code>, unggah dokumen, cek status.</li>
+            <li><span class="who">Admin</span>Verifikasi dokumen → seleksi otomatis → daftar ulang → akun siswa terbentuk.</li>
+          </ol></div>
+          <div class="flow"><h3>Tutup tahun ajaran</h3><ol>
+            <li><span class="who">Admin</span>Akademik → Tutup Tahun Ajaran → rencana (naik/lulus/tinggal per kelas).</li>
+            <li>Pre-check (rapor sudah sah?) → dry-run (lihat hasil) → eksekusi.</li>
+            <li>Kelas baru & tahun ajaran aktif; penugasan guru disalin; alumni tercatat. Bisa <b>rollback</b> bila keliru.</li>
+          </ol></div>
+        </div>
+      </section>
+
+      <section id="alesha">
+        <div class="eyebrow">06 · Asisten AI</div>
+        <h2>Alesha AI</h2>
+        <p>Ikon ✨ di pojok kanan bawah setiap halaman. Setelah masuk, Alesha mengenali peran dan hanya membaca data yang boleh Anda lihat. Tersedia mode chat dan suara. Setiap jawaban menyebut sumbernya: <i>data lembaga</i> atau <i>pengetahuan umum model (perlu verifikasi)</i>.</p>
+        <div class="alesha">
+          <div class="chat">
+            <div class="top">✨ Alesha <small>· contoh percakapan guru</small></div>
+            <div class="body">
+              <div class="b me">Insight kelas saya</div>
+              <div class="b ai"><b>Alesha Teaching Insight</b><br>Konsep paling belum terserap: <b>Pengalamatan IPv4 &amp; subnetting</b> (X TKJ 1) — 25% benar dari 4 jawaban.<br>⚠ Potensi miskonsepsi: pengecoh yang sama dipilih berulang pada <i>Model OSI</i> — pola: "mengira pengalamatan ada di lapisan fisik".<br>Rekomendasi: mulai dari contoh konkret, 3 soal kontras, asesmen mini 5 menit. Keyakinan rendah (bukti sedikit).<span class="src">Sumber: data lembaga Anda · Peta konsep kelas</span></div>
+              <div class="b me">Rancang pembelajaran tentang subnetting</div>
+              <div class="b ai"><b>Draf rancangan — subnetting</b> (3 pertemuan): tujuan, alokasi waktu, latihan bertingkat, rubrik… Bagian bertanda perlu Anda verifikasi. Draf tidak dikirim ke siswa tanpa persetujuan Anda.<span class="src">Sumber: pengetahuan umum model (demo)</span></div>
+            </div>
+          </div>
+          <div style="display:grid;gap:14px;align-content:start">
+            <div class="tile"><h3>Yang bisa ditanyakan</h3><ul class="plain" style="font-size:.95rem">
+              <li><b>Siswa:</b> "Tugas apa yang mendekati tenggat?", "Konsep mana yang masih lemah?", "Jadwal hari ini", "Tagihan saya", "<b>Quiz me!</b>" (soal nyata dari bank soal + koreksi).</li>
+              <li><b>Guru:</b> "Insight kelas saya", "Rancang pembelajaran tentang …", "Buat soal tentang …", "Tugas yang belum dinilai".</li>
+              <li><b>Pimpinan/Admin:</b> "Ringkasan sekolah hari ini", "Berapa tunggakan tagihan?".</li>
+              <li><b>Wali:</b> "Bagaimana perkembangan anak saya?" — capaian, bukan jejak aktivitas.</li>
+              <li><b>Publik (tanpa login):</b> "PPDB sedang dibuka?", "Berita terbaru", "Apa itu SINAU?".</li>
+            </ul></div>
+            <div class="tile"><h3>Mode tutor siswa</h3><div class="modes">
+              <div><b>Explain</b><span>jelaskan dari dasar dengan satu contoh</span></div>
+              <div><b>Simplify</b><span>bahasa lebih sederhana</span></div>
+              <div><b>Quiz Me</b><span>uji singkat, catat pola kesalahan</span></div>
+              <div><b>Challenge</b><span>naikkan tingkat kesulitan</span></div>
+              <div><b>Review</b><span>ulang materi lama</span></div>
+              <div><b>Socratic</b><span>hanya bertanya balik — <b>otomatis</b> saat kuis/ujian berjalan</span></div>
+            </div></div>
+          </div>
+        </div>
+        <div class="note">Prinsip: <b>AI mengusulkan, manusia memutuskan.</b> Alesha tidak pernah menetapkan nilai akhir, kelulusan, atau penjurusan. Saat ini berjalan dalam <b>mode demo</b> (menjawab dari data nyata dengan pola tetap); engine AI penuh tinggal dihubungkan lewat pengaturan server.</div>
+      </section>
+
+      <section id="publik">
+        <div class="eyebrow">07 · Tanpa login</div>
+        <h2>Situs publik</h2>
+        <div class="tiles">
+          <div class="tile"><h3>Welcome</h3><p><code>/welcome</code> — pengantar SINAU dan daftar lembaga.</p></div>
+          <div class="tile"><h3>Situs lembaga</h3><p><code>/s/smkn1-demo</code> — profil, berita, fasilitas, galeri, FAQ, kontak. Isinya diatur Admin Sekolah di menu <b>Landing Page</b>.</p></div>
+          <div class="tile"><h3>PPDB online</h3><p><code>/s/smkn1-demo/ppdb</code> — pendaftaran calon siswa, unggah dokumen, cek status dengan nomor pendaftaran.</p></div>
+          <div class="tile"><h3>Portal materi</h3><p><code>/portal</code> — materi yang dibagikan lembaga untuk umum.</p></div>
+        </div>
+      </section>
+
+      <section id="tips">
+        <div class="eyebrow">08 · Catatan</div>
+        <h2>Tips &amp; keamanan</h2>
+        <ul class="plain">
+          <li><b>Data antar lembaga terisolasi.</b> Pengguna satu sekolah tidak dapat melihat data sekolah lain; hanya Super Admin yang bisa berpindah lembaga.</li>
+          <li><b>Izin per peran</b> bisa disesuaikan tanpa ubah kode (menu Peran &amp; Izin); setiap aksi penting tercatat di <b>Audit Log</b>.</li>
+          <li><b>Login salah berulang</b> dibatasi (10×/menit). Sesi otomatis berakhir bila token dicuri/dipakai ulang.</li>
+          <li><b>Mode pemeliharaan</b> (Admin → Profil Lembaga) menutup akses pengguna lain sementara; admin tetap bisa masuk.</li>
+          <li><b>Tema gelap &amp; hemat data</b> tersedia di Profil Saya — berguna di jaringan lambat.</li>
+          <li><b>Privasi anak:</b> siswa/wali dapat melihat, mengekspor, dan meminta penghapusan data pribadinya di menu <b>Data Pribadi</b>; permintaan ditinjau petugas.</li>
+        </ul>
+        <footer><span>SINAU · Panduan Pengguna v1.0</span><span>Dokumentasi teknis: <code>README.md</code>, <code>DEPLOY.md</code>, <code>LAPORAN-UJI.md</code> di repositori</span></footer>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script id="nav-data" type="application/json">{"SUPER_ADMIN":{"label":"Super Admin","prefix":"superadmin","account":"superadmin","sections":[{"title":"","items":["Dashboard","Lembaga","Peran & Izin Platform","Pengguna Platform","Fitur Global","Portal Publik","Audit Log","Pekerjaan Latar"]},{"title":"Akun","items":["Profil Saya"]}]},"ADMIN_SEKOLAH":{"label":"Admin Sekolah","prefix":"admin","account":"admin.smk1","sections":[{"title":"","items":["Dashboard"]},{"title":"Akademik","items":["Tahun Ajaran","Jurusan","Mata Pelajaran","Kelas & Rombel","Ruang","Jadwal","Kalender","Kurikulum","Alumni","Tutup Tahun Ajaran"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Kesiswaan","items":["Kedisiplinan","Ekstrakurikuler","Prestasi","Izin / Sakit"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Keuangan","items":["Tagihan","Pembayaran","Arus Kas","Payroll","Slip Gaji Saya"]},{"title":"Sarana","items":["Aset","Perpustakaan"]},{"title":"SMK","items":["PPDB","Prakerin","Uji Kompetensi"]},{"title":"Laporan","items":["Laporan Sekolah","Ekspor Dapodik","Audit Log"]},{"title":"Pengaturan","items":["Pengguna","Peran & Izin","Profil Lembaga","Branding","Fitur","Landing Page","Pelindungan Data"]},{"title":"Akun","items":["Profil Saya"]}]},"KEPSEK":{"label":"Kepala Sekolah","prefix":"kepsek","account":"kepsek.smk1","sections":[{"title":"","items":["Dashboard","Persetujuan"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Akademik","items":["Tahun Ajaran","Jurusan","Mata Pelajaran","Kelas & Rombel","Ruang","Jadwal","Kalender"]},{"title":"Kesiswaan","items":["Konseling (BK)","Kedisiplinan","Ekstrakurikuler","Prestasi","Izin / Sakit"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Keuangan","items":["Tagihan","Pembayaran","Arus Kas","Payroll","Slip Gaji Saya"]},{"title":"Sarana","items":["Aset","Perpustakaan"]},{"title":"SMK","items":["PPDB","Prakerin","Uji Kompetensi"]},{"title":"Laporan","items":["Laporan Sekolah","Audit Log"]},{"title":"Pengaturan","items":["Pengguna","Pelindungan Data"]},{"title":"Akun","items":["Profil Saya"]}]},"WAKEPSEK":{"label":"Wakil Kepala Sekolah","prefix":"wakepsek","account":"wakepsek.smk1","sections":[{"title":"","items":["Dashboard"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Akademik","items":["Tahun Ajaran","Jurusan","Mata Pelajaran","Kelas & Rombel","Ruang","Jadwal","Kalender","Kurikulum","Alumni","Tutup Tahun Ajaran"]},{"title":"Kesiswaan","items":["Konseling (BK)","Kedisiplinan","Ekstrakurikuler","Prestasi","Izin / Sakit"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Laporan","items":["Laporan Sekolah","Audit Log"]},{"title":"Pengaturan","items":["Pengguna"]},{"title":"Akun","items":["Profil Saya"]}]},"KAPRODI":{"label":"Ketua Program Keahlian","prefix":"kaprodi","account":"guru.andi","sections":[{"title":"","items":["Dashboard"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Program Keahlian","items":["Kelas & Rombel","Jadwal","Prakerin","Uji Kompetensi","Laporan"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Lainnya","items":["Slip Gaji","Pengguna"]},{"title":"Akun","items":["Profil Saya"]}]},"GURU":{"label":"Guru","prefix":"guru","account":"guru.dimas","sections":[{"title":"","items":["Dashboard","Kelas Saya","Jadwal"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Kesiswaan","items":["Izin / Sakit","Kedisiplinan","Prestasi","Ekstrakurikuler"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Lainnya","items":["Slip Gaji","Absensi Saya","Perpustakaan","Aset","Prakerin","Uji Kompetensi"]},{"title":"Akun","items":["Profil Saya"]}]},"STAF":{"label":"Tenaga Kependidikan","prefix":"staf","account":"staf.budi","sections":[{"title":"","items":["Dashboard"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Sarana","items":["Aset","Perpustakaan"]},{"title":"Lainnya","items":["Slip Gaji","Absensi Saya","Pengguna"]},{"title":"Akun","items":["Profil Saya"]}]},"BK":{"label":"Guru BK","prefix":"bk","account":"bk.sari","sections":[{"title":"","items":["Dashboard"]},{"title":"Bimbingan","items":["Konseling","Kedisiplinan","Izin / Sakit","Absensi","Nilai","Prestasi","Siswa","Laporan"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Lainnya","items":["Slip Gaji","Absensi Saya"]},{"title":"Akun","items":["Profil Saya"]}]},"KEUANGAN":{"label":"Staf Keuangan","prefix":"keuangan","account":"keu.wati","sections":[{"title":"","items":["Dashboard"]},{"title":"Keuangan","items":["Tagihan","Pembayaran","Jenis Biaya & Denda","Rekonsiliasi Bank","Arus Kas","Payroll","Slip Gaji Saya"]},{"title":"Lainnya","items":["Siswa","Aset","Laporan","Absensi Saya"]},{"title":"Komunikasi","items":["Pengumuman","Notifikasi","Surat Resmi"]},{"title":"Akun","items":["Profil Saya"]}]},"AUDITOR":{"label":"Auditor","prefix":"auditor","account":"auditor.smk1","sections":[{"title":"","items":["Dashboard"]},{"title":"Laporan","items":["Laporan Sekolah","Audit Log"]},{"title":"Pembelajaran","items":["Materi","Tugas","Kuis","Ujian","Bank Soal","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Keuangan","items":["Tagihan","Pembayaran","Arus Kas","Payroll","Slip Gaji Saya"]},{"title":"Sarana","items":["Aset","Perpustakaan"]},{"title":"Pengaturan","items":["Pengguna","Peran & Izin"]},{"title":"Akun","items":["Profil Saya"]}]},"SISWA":{"label":"Siswa","prefix":"siswa","account":"siswa.01","sections":[{"title":"","items":["Dashboard","Jadwal"]},{"title":"Belajar","items":["Materi","Tugas","Kuis","Ujian","Nilai","Absensi","e-Rapor","Peta Konsep"]},{"title":"Sekolah","items":["Pengumuman","Notifikasi","Tagihan","Ekstrakurikuler","Perpustakaan","Prakerin","Uji Kompetensi","Data Pribadi"]},{"title":"Akun","items":["Profil Saya"]}]},"WALI_MURID":{"label":"Wali Murid","prefix":"ortu","account":"wali.01","sections":[{"title":"","items":["Dashboard"]},{"title":"Anak Saya","items":["Nilai","Absensi","Tugas","e-Rapor","Izin / Sakit","Tagihan","Kedisiplinan","Prestasi"]},{"title":"Sekolah","items":["Pengumuman","Notifikasi","Data Pribadi"]},{"title":"Akun","items":["Profil Saya"]}]},"CALON_SISWA":{"label":"Calon Siswa","prefix":"calon","account":null,"sections":[{"title":"","items":["Dashboard","Pendaftaran Saya","Notifikasi"]},{"title":"Akun","items":["Profil Saya"]}]},"PEMBIMBING_INDUSTRI":{"label":"Pembimbing Industri","prefix":"pembimbing","account":null,"sections":[{"title":"","items":["Dashboard","Siswa Bimbingan","Notifikasi"]},{"title":"Akun","items":["Profil Saya"]}]},"PENGUJI_EKSTERNAL":{"label":"Penguji Eksternal","prefix":"penguji","account":null,"sections":[{"title":"","items":["Dashboard","Uji Kompetensi","Notifikasi"]},{"title":"Akun","items":["Profil Saya"]}]}}</script>
+<script>
+  const DESC = {
+    SUPER_ADMIN: 'Mengelola platform: mendaftarkan lembaga, template peran & izin, fitur global, audit, pekerjaan latar. Bisa berpindah ke lembaga mana pun.',
+    ADMIN_SEKOLAH: 'Mengelola data induk & pengaturan lembaga: pengguna, akademik, branding, landing page, PPDB, tutup tahun ajaran.',
+    KEPSEK: 'Memantau KPI sekolah dan memutuskan: mengesahkan rapor, payroll, surat, refund, peminjaman aset lewat inbox Persetujuan.',
+    WAKEPSEK: 'Membantu kepala sekolah di bidang akademik & kesiswaan: jadwal, kurikulum, kedisiplinan, rapor.',
+    KAPRODI: 'Mengelola program keahlian: kelas & jadwal prodi, prakerin (mitra, pembimbing, jurnal), uji kompetensi & sertifikat.',
+    GURU: 'Mengajar: materi, tugas, kuis, ujian, penilaian, presensi, e-Rapor untuk kelas & mapel yang diampu; insight kelas dari Alesha.',
+    STAF: 'Tenaga kependidikan: sarana (aset, peminjaman), perpustakaan, presensi diri, slip gaji.',
+    BK: 'Bimbingan konseling: catatan konseling (rahasia), kedisiplinan & poin, izin/sakit, laporan.',
+    KEUANGAN: 'Keuangan sekolah: jenis biaya, tagihan, pembayaran & kuitansi, rekonsiliasi bank, arus kas, payroll.',
+    AUDITOR: 'Baca-saja: laporan, keuangan, payroll, pembelajaran, audit log — tanpa tombol ubah.',
+    SISWA: 'Belajar: materi, tugas, kuis, ujian, nilai, rapor, presensi, tagihan, prakerin, data pribadi; tutor Alesha.',
+    WALI_MURID: 'Memantau anak: nilai, absensi, tugas, rapor, tagihan, kedisiplinan, prestasi; mengajukan izin.',
+    CALON_SISWA: 'Akun sementara peserta PPDB: status pendaftaran, dokumen, pengumuman.',
+    PEMBIMBING_INDUSTRI: 'Pembimbing di tempat prakerin: memverifikasi jurnal harian siswa bimbingan.',
+    PENGUJI_EKSTERNAL: 'Penguji dari industri/LSP: menilai uji kompetensi dengan rubrik.',
+  };
+  const nav = JSON.parse(document.getElementById('nav-data').textContent);
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  document.getElementById('roles').innerHTML = Object.entries(nav).map(([key, r]) => `
+    <article class="role">
+      <header>
+        <div><h3>${esc(r.label)} <span class="pill">/${r.prefix}/…</span></h3><div class="desc">${DESC[key] || ''}</div></div>
+        <div class="acct">${r.account ? `Akun uji coba: <span class="mono">${r.account}</span>` : 'Akun dibuat otomatis oleh proses PPDB / prakerin / uji kompetensi'}</div>
+      </header>
+      <div class="menus">${r.sections.map((s) => `<div class="group"><div class="g">${esc(s.title || 'Utama')}</div><div class="chips">${s.items.map((i) => `<span class="chip">${esc(i)}</span>`).join('')}</div></div>`).join('')}</div>
+    </article>`).join('');
+</script>
