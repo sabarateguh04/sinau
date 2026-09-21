@@ -108,7 +108,9 @@ export function crudRouter<C extends Record<string, unknown>, U extends Record<s
     if (o.afterCreate) await o.afterCreate(row, req, exec);
     await audit(req, `${entity}.create`, entity, String(row.id), undefined, row);
     const fresh = await queryOne(`SELECT ${select} FROM ${tbl} t ${joins} WHERE t.id = ?`, [row.id]);
-    created(res, present(fresh!, req));
+    // Hooks may attach extra response-only keys (e.g. generated credentials); keep those that are not columns.
+    const extras = Object.fromEntries(Object.entries(row).filter(([k]) => !(k in (fresh ?? {}))));
+    created(res, present({ ...fresh!, ...extras }, req));
   }));
 
   r.put('/:id', requirePermission(...o.perms.write), wrap(async (req, res) => {
