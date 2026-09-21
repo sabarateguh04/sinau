@@ -38,6 +38,9 @@ export async function seedDemo(): Promise<{ tenant_id: string; created: boolean 
     };
     await user('admin', 'admin.smk1', 'Admin Sekolah', ['ADMIN_SEKOLAH'], { gender: 'P' });
     await user('kepsek', 'kepsek.smk1', 'Drs. Bambang Wijaya, M.Pd', ['KEPSEK', 'GURU'], { gender: 'L' });
+    await user('wakepsek', 'wakepsek.smk1', 'Dra. Siti Nurhaliza, M.Pd', ['WAKEPSEK', 'GURU'], { gender: 'P' });
+    await user('staf', 'staf.budi', 'Budi Santoso', ['STAF'], { gender: 'L' });
+    await user('auditor', 'auditor.smk1', 'Ir. Hendra Gunawan, Ak', ['AUDITOR'], { gender: 'L' });
     await user('dimas', 'guru.dimas', 'Dimas Prasetyo, S.Kom', ['GURU'], { gender: 'L' });
     await user('rina', 'guru.rina', 'Rina Wijayanti, S.Pd', ['GURU'], { gender: 'P' });
     await user('andi', 'guru.andi', 'Andi Saputra, S.Pd', ['GURU', 'KAPRODI'], { gender: 'L' });
