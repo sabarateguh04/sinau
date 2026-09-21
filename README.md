@@ -71,7 +71,7 @@ docs/      erd.md (Mermaid), kesesuaian-konsep.md (pemetaan ke dokumen konsep pr
 prd.md     spesifikasi produk & keputusan desain
 ```
 
-Lihat `DEPLOY.md` untuk produksi dan `PENGUJIAN.md` untuk skenario uji per peran.
+Lihat `DEPLOY.md` untuk produksi, `PENGUJIAN.md` untuk skenario uji per peran, dan **panduan pengguna** (peran, menu, akun, alur kerja, Alesha) di `http://<host>:4008/panduan.html` — sumbernya `frontend/public/panduan.html`.
 
 ## Lisensi & asal kode
 
