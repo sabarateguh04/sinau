@@ -32,7 +32,7 @@ export default function Landing() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative isolate overflow-hidden">
         <div className="absolute inset-0 -z-10 overflow-hidden bg-gradient-to-br from-brand-50 via-surface-2 to-amber-50 dark:from-brand-900/30 dark:via-surface-2 dark:to-surface-2">
           <div className="hero-grid" />
           <div className="blob -left-24 -top-24 h-[28rem] w-[28rem] bg-brand-400/60 dark:bg-brand-500/30" />
@@ -47,7 +47,7 @@ export default function Landing() {
             <div className="mt-7 flex flex-wrap gap-3"><Link to="/login"><Button size="lg" icon={<ArrowRight className="h-4 w-4" />}>Masuk</Button></Link><Link to="/portal"><Button size="lg" variant="outline" icon={<BookOpen className="h-4 w-4" />}>Jelajahi materi publik</Button></Link></div>
             {stats && <div className="mt-8 flex gap-8 text-sm text-ink-2"><span><b className="text-xl text-ink">{stats.tenants}</b> lembaga</span><span><b className="text-xl text-ink">{Number(stats.students).toLocaleString('id-ID')}</b> siswa</span><span><b className="text-xl text-ink">{Number(stats.materials).toLocaleString('id-ID')}</b> materi</span></div>}
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative"><div className="orbit -z-10" /><AleshaShowcase /></motion.div>
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative isolate"><div className="orbit -z-10" /><AleshaShowcase /></motion.div>
         </div>
       </section>
 
