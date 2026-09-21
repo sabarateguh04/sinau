@@ -16,6 +16,8 @@ import exams from './exams/routes';
 import rapor from './rapor/routes';
 import analytics from './analytics/routes';
 import kesiswaan from './kesiswaan/routes';
+import finance from './finance/routes';
+import payroll from './payroll/routes';
 
 /** Authenticated modules mounted under /api/v1 (order matters only for overlapping paths). */
 export const modules: { path: string; router: Router }[] = [
@@ -36,4 +38,6 @@ export const modules: { path: string; router: Router }[] = [
   { path: '/rapor', router: rapor },
   { path: '/analytics', router: analytics },
   { path: '/kesiswaan', router: kesiswaan },
+  { path: '/finance', router: finance },
+  { path: '/payroll', router: payroll },
 ];
