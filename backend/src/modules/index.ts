@@ -15,6 +15,7 @@ import landing from './landing/routes';
 import exams from './exams/routes';
 import rapor from './rapor/routes';
 import analytics from './analytics/routes';
+import kesiswaan from './kesiswaan/routes';
 
 /** Authenticated modules mounted under /api/v1 (order matters only for overlapping paths). */
 export const modules: { path: string; router: Router }[] = [
@@ -34,4 +35,5 @@ export const modules: { path: string; router: Router }[] = [
   { path: '/exams', router: exams },
   { path: '/rapor', router: rapor },
   { path: '/analytics', router: analytics },
+  { path: '/kesiswaan', router: kesiswaan },
 ];

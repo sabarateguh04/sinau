@@ -29,6 +29,12 @@ export const PAGES: PageDef[] = [
   { path: 'rapor', component: L(() => import('./lms/Rapor')) },
   { path: 'konsep', component: L(() => import('./lms/ConceptMap')) },
   { path: 'laporan', component: L(() => import('./reports/SchoolReport')) },
+  // Kesiswaan
+  { path: 'bk/konseling', component: L(() => import('./kesiswaan/Counseling')) },
+  { path: 'bk/kedisiplinan', component: L(() => import('./kesiswaan/Discipline')) },
+  { path: 'ekskul', component: L(() => import('./kesiswaan/Extracurriculars')) },
+  { path: 'prestasi', component: L(() => import('./kesiswaan/Achievements')) },
+  { path: 'surat', component: L(() => import('./kesiswaan/Letters')) },
   { path: 'absensi', component: L(() => import('./attendance/Attendance')) },
   { path: 'absensi/izin', component: L(() => import('./attendance/Permits')) },
   { path: 'absensi/staf', component: L(() => import('./attendance/StaffAttendance')) },
