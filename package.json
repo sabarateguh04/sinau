@@ -10,7 +10,8 @@
     "typecheck": "npm run typecheck --prefix backend && npm run typecheck --prefix frontend",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
     "db:migrate": "npm run db:migrate --prefix backend",
-    "db:seed:demo": "npm run db:seed:demo --prefix backend"
+    "db:seed:demo": "npm run db:seed:demo --prefix backend",
+    "dev:hmr": "concurrently -n api,web -c cyan,magenta \"npm run dev --prefix backend\" \"npm run dev:hmr --prefix frontend\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
