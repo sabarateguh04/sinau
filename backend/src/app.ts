@@ -41,12 +41,17 @@ export function createApp() {
 
   // Single-port deployment: serve the built frontend with SPA fallback.
   app.use(guideRoutes); // /panduan — panduan pengguna di balik kode akses (bukan bagian SPA)
-  if (config.serveFrontend && fs.existsSync(path.join(config.frontendDist, 'index.html'))) {
+  // The dist check is per request so `npm run dev` (vite build --watch) can start before the first build finishes.
+  if (config.serveFrontend) {
+    const index = path.join(config.frontendDist, 'index.html');
     app.use(express.static(config.frontendDist, { maxAge: '1h', index: false }));
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(config.frontendDist, 'index.html')));
+    app.get(/^(?!\/api\/).*/, (_req, res) => {
+      if (fs.existsSync(index)) return res.sendFile(index);
+      res.status(503).type('html').send('<meta http-equiv="refresh" content="2"><p style="font-family:sans-serif;padding:24px">Frontend sedang di-build… halaman ini memuat ulang otomatis.</p>');
+    });
     logger.info({ dist: config.frontendDist }, 'serving frontend');
   } else {
-    app.get('/', (_req, res) => { res.json({ name: 'SINAU API', docs: '/api/v1/health', hint: 'Build the frontend (npm run build) to serve it from this port.' }); });
+    app.get('/', (_req, res) => { res.json({ name: 'SINAU API', docs: '/api/v1/health' }); });
   }
 
   app.use(errorHandler);

@@ -23,9 +23,9 @@ Migrasi idempoten — aman diulang setelah `git pull`.
 
 ## 4. Jalankan
 ```bash
-npm run dev        # API di :4008 + Vite hot-reload di :4009 → buka http://localhost:4009
+npm run dev        # satu port seperti server → buka http://localhost:4008 (backend auto-restart, frontend auto-rebuild; refresh browser setelah ubah kode)
 ```
-Atau mode produksi satu port: `npm run build && npm start` → http://localhost:4008.
+Mode produksi: `npm run build && npm start` → http://localhost:4008. Opsional `npm run dev:hmr` untuk hot-reload Vite di :4009.
 
 Akun: `superadmin`/`superadmin123`; tenant demo `admin.smk1`, `guru.dimas`, `siswa.01`, `wali.01`, `kepsek.smk1`, … semua `demo12345` (daftar lengkap di README).
 

@@ -37,11 +37,13 @@ npm run db:seed:demo                    # opsional: tenant demo "smkn1-demo"
 npm run build && npm start              # → http://localhost:4008
 ```
 
-Mode pengembangan (API 4008 + Vite HMR 4009 yang mem-proxy `/api`):
+Mode pengembangan — tetap satu port, sama seperti server (backend auto-restart, frontend auto-rebuild; refresh browser setelah ubah kode):
 
 ```bash
-npm run dev            # buka http://localhost:4009
+npm run dev            # buka http://localhost:4008
 ```
+
+Opsional `npm run dev:hmr` bila ingin hot-reload Vite di :4009 (mem-proxy `/api` ke 4008).
 
 Perintah lain: `npm run typecheck`, `npm run db:snapshot --prefix backend` (perbarui `backend/database/schema.sql` & `docs/erd.md`), `npm run db:dump --prefix backend` / `npm run db:import --prefix backend` (pindahkan data antar lingkungan lewat `deploy/db_sinau-data.sql`).
 
