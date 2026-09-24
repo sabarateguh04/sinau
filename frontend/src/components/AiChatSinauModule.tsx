@@ -35,7 +35,13 @@ import {
   MessageSquare,
   MapPin,
   RefreshCw,
-  Square
+  Square,
+  Lock,
+  BookOpen,
+  GraduationCap,
+  Brain,
+  Zap,
+  HelpCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -2400,6 +2406,44 @@ function parseDocumentDownloadCard(line: string, key: string | number): React.Re
  */
 
 
+interface ActionButton {
+  label: string;
+  prompt: string;
+}
+
+interface TutorModeItem {
+  id: string;
+  label: string;
+  icon: string;
+  title: string;
+}
+
+const TUTOR_MODES: TutorModeItem[] = [
+  { id: 'explain', label: 'Explain', icon: '💡', title: 'Penjelasan dasar dengan analogi utama' },
+  { id: 'simplify', label: 'Simplify', icon: '🐣', title: 'Bahasa sederhana tanpa istilah rumit' },
+  { id: 'give_example', label: 'Give Example', icon: '🔍', title: 'Contoh kasus nyata kontekstual' },
+  { id: 'why', label: 'Why', icon: '❓', title: 'Logika & alasan di balik rumus/aturan' },
+  { id: 'practice', label: 'Practice', icon: '✍️', title: 'Latihan bertingkat langkah demi langkah' },
+  { id: 'quiz_me', label: 'Quiz Me', icon: '🎯', title: 'Uji pemahaman cepat interaktif' },
+  { id: 'challenge_me', label: 'Challenge Me', icon: '⚡', title: 'Tantangan penalaran tinggi (HOTS)' },
+  { id: 'review', label: 'Review', icon: '🔄', title: 'Pengulangan terjadwal kurva lupa' },
+  { id: 'exam_mode', label: 'Exam Mode', icon: '⏱️', title: 'Simulasi ujian waktu nyata tanpa bantuan' },
+  { id: 'socratic', label: 'Socratic', icon: '🏛️', title: 'Panduan tanya balik tanpa jawaban instan' },
+];
+
+function extractActionButtons(rawText: string): { cleanContent: string; actions: ActionButton[] } {
+  const actions: ActionButton[] = [];
+  const regex = /\[action:([^\|\]]+)\|?([^\]]*)\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(rawText)) !== null) {
+    const label = match[1].trim();
+    const prompt = match[2] ? match[2].trim() : label;
+    actions.push({ label, prompt });
+  }
+  const cleanContent = rawText.replace(regex, '').trim();
+  return { cleanContent, actions };
+}
+
 export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   isOpen = false,
   isFullPage = false,
@@ -2427,31 +2471,51 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
     return isUserUmum ? 'visitor' : 'guest';
   }, [currentUser?.id, currentUser?.username, isUserUmum]);
 
+  // Auto-clean legacy chat sessions on load (ensures stale history from database/vault is wiped)
+  const STORAGE_CLEAN_VERSION = '2026_09_24_clean_v2';
+  if (typeof window !== 'undefined') {
+    try {
+      if (localStorage.getItem('sm_sinau_ai_storage_version') !== STORAGE_CLEAN_VERSION) {
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('sm_sinau_ai_') || k.startsWith('sm_logistik_ai_'))) {
+            toRemove.push(k);
+          }
+        }
+        toRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('sm_sinau_ai_storage_version', STORAGE_CLEAN_VERSION);
+      }
+    } catch {}
+  }
+
   const storageKeys = useMemo(() => ({
     sessions: `sm_sinau_ai_sessions_${userScope}`,
     activeSession: `sm_sinau_ai_active_session_id_${userScope}`,
     messages: (sId: string) => `sm_sinau_ai_messages_${userScope}_${sId}`,
   }), [userScope]);
 
-  // Helper to load sessions specifically for current user
+  // Helper to load sessions specifically for current user (strictly clean & isolated)
   const loadUserSessions = useCallback((uScope: string, uId: string): AiChatSession[] => {
     try {
       const uKey = `sm_sinau_ai_sessions_${uScope}`;
       const saved = localStorage.getItem(uKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      // Migrate legacy sessions ONLY if they specifically match this user's ID or username
-      const legacy = localStorage.getItem('sm_sinau_ai_sessions');
-      if (legacy) {
-        const parsedLegacy = JSON.parse(legacy);
-        if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
-          const isDimas = uId === '583ab4c1-5a1d-4998-abcf-1b992b770ddc' || uScope.includes('guru.dimas');
-          const userLegacy = parsedLegacy.filter((s: any) => s.userId === uId || (isDimas && (!s.userId || s.userId === 'usr_sinau')));
-          if (userLegacy.length > 0) {
-            localStorage.setItem(uKey, JSON.stringify(userLegacy));
-            return userLegacy;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filter out any vault-injected or stale sessions
+          const cleaned = parsed.filter((s: any) => 
+            s && s.title &&
+            !s.title.includes('📑') &&
+            !s.title.includes('ðŸ“‘') &&
+            !s.id?.startsWith('sesi_') &&
+            !s.id?.startsWith('koreksi_') &&
+            !s.id?.startsWith('session_') &&
+            !s.id?.startsWith('vault_')
+          );
+          if (cleaned.length > 0) {
+            localStorage.setItem(uKey, JSON.stringify(cleaned));
+            return cleaned;
           }
         }
       }
@@ -2511,6 +2575,14 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const [expandedChart, setExpandedChart] = useState<any>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [activeTutorMode, setActiveTutorMode] = useState<string>('explain');
+
+  // Deteksi pengerjaan kuis/ujian aktif untuk penegakan mode Socratic
+  const inQuizOrExam = typeof window !== 'undefined' && (
+    window.location.pathname.includes('/ujian/') ||
+    window.location.pathname.includes('/kuis/') ||
+    window.location.pathname.includes('attempt')
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -2558,10 +2630,68 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
     }
   }, [messages, isLoading, isOpen, isFullPage]);
 
+  // Listen for real-time memory synchronization from 3D Kiosk Avatar
+  useEffect(() => {
+    const handleChatSync = () => {
+      if (activeSessionId) {
+        const updatedMsgs = loadSessionMessages(userScope, activeSessionId);
+        if (updatedMsgs.length > 0) {
+          setMessages(updatedMsgs);
+        }
+      }
+    };
+
+    window.addEventListener('alesha_chat_updated', handleChatSync);
+    window.addEventListener('storage', handleChatSync);
+    window.addEventListener('focus', handleChatSync);
+
+    return () => {
+      window.removeEventListener('alesha_chat_updated', handleChatSync);
+      window.removeEventListener('storage', handleChatSync);
+      window.removeEventListener('focus', handleChatSync);
+    };
+  }, [activeSessionId, userScope, loadSessionMessages]);
+
   // Handle switching session
   const handleSelectSession = (sId: string) => {
     setActiveSessionId(sId);
     setMessages(loadSessionMessages(userScope, sId));
+  };
+
+  // Handle clearing all chat history & starting fresh
+  const handleClearAllHistory = () => {
+    if (!confirm('Hapus seluruh riwayat chat dan mulai sesi baru?')) return;
+    try {
+      localStorage.removeItem(storageKeys.sessions);
+      localStorage.removeItem(storageKeys.activeSession);
+      localStorage.removeItem('sm_sinau_ai_sessions');
+      localStorage.removeItem('sm_sinau_ai_active_session_id');
+      localStorage.removeItem('sm_sinau_ai_session_id');
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('sm_sinau_ai_') || k.startsWith('sm_logistik_ai_'))) {
+          toRemove.push(k);
+        }
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+    } catch {}
+    const newId = `sinau_${userScope}_${Date.now()}`;
+    const cleanSession: AiChatSession = {
+      id: newId,
+      userId: currentUser?.id || 'usr_sinau',
+      title: 'Konsultasi Akademik & Pembelajaran',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setSessions([cleanSession]);
+    setActiveSessionId(newId);
+    setMessages([]);
+    try {
+      localStorage.setItem(storageKeys.sessions, JSON.stringify([cleanSession]));
+      localStorage.setItem(storageKeys.activeSession, newId);
+      localStorage.setItem('sm_sinau_ai_session_id', newId);
+    } catch {}
   };
 
   // Handle creating new session
@@ -2648,6 +2778,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
 
       case 'SUPER_ADMIN':
         return [
+          { label: '🏫 Lembaga & Wilayah Terdaftar', prompt: 'Lembaga yang terdaftar ada di wilayah mana saja? Tampilkan daftar lembaga beserta lokasi kota dan provinsinya.' },
           { label: '📊 Statistik Multi-Tenant Sekolah', prompt: 'Tampilkan rekapitulasi jumlah sekolah aktif, total siswa, dan kapasitas server multi-tenant SM-Sinau.' },
           { label: '🛡️ Audit Log & Keamanan', prompt: 'Tampilkan rekap aktivitas audit log sistem, percobaan login gagal, dan event keamanan terbaru.' },
           { label: '💾 Alokasi & Kuota Penyimpanan', prompt: 'Berapa total penggunaan penyimpanan berkas materi pembelajaran dan kuota per sekolah?' },
@@ -2894,14 +3025,19 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
 
     try {
       let targetRoleCode = (effectiveRole || '').toLowerCase().trim();
-      if (targetRoleCode.includes('super') || targetRoleCode.includes('sekolah') || targetRoleCode === 'admin') targetRoleCode = 'admin_sekolah';
-      else if (targetRoleCode.includes('kepsek') || targetRoleCode.includes('kepala') || targetRoleCode.includes('wake')) targetRoleCode = 'kepsek';
+      if (targetRoleCode.includes('super')) targetRoleCode = 'superadmin';
+      else if (targetRoleCode.includes('sekolah') || targetRoleCode === 'admin') targetRoleCode = 'admin_sekolah';
+      else if (targetRoleCode.includes('wake') || targetRoleCode.includes('wakil')) targetRoleCode = 'wakepsek';
+      else if (targetRoleCode.includes('kepsek') || targetRoleCode.includes('kepala')) targetRoleCode = 'kepsek';
       else if (targetRoleCode.includes('prodi') || targetRoleCode.includes('jurusan')) targetRoleCode = 'kaprodi';
       else if (targetRoleCode.includes('guru') || targetRoleCode.includes('teacher')) targetRoleCode = 'guru';
       else if (targetRoleCode.includes('bk') || targetRoleCode.includes('konseling')) targetRoleCode = 'bk';
       else if (targetRoleCode.includes('keuangan') || targetRoleCode.includes('bendahara')) targetRoleCode = 'keuangan';
+      else if (targetRoleCode.includes('staf') || targetRoleCode.includes('tu') || targetRoleCode.includes('staff')) targetRoleCode = 'staf';
+      else if (targetRoleCode.includes('audit')) targetRoleCode = 'auditor';
       else if (targetRoleCode.includes('wali') || targetRoleCode.includes('orang_tua') || targetRoleCode.includes('parent')) targetRoleCode = 'wali_murid';
       else if (targetRoleCode.includes('industri') || targetRoleCode.includes('du_di')) targetRoleCode = 'pembimbing_industri';
+      else if (targetRoleCode.includes('penguji') || targetRoleCode.includes('asesor')) targetRoleCode = 'penguji_eksternal';
       else if (targetRoleCode.includes('siswa') || targetRoleCode.includes('student') || targetRoleCode.includes('murid')) targetRoleCode = 'siswa';
 
       const payload: any = {
@@ -2922,6 +3058,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         category_id: 'sm-sinau',
         current_menu: isUserUmum ? (isPortal ? 'Portal Materi Publik' : 'Landing Page & Pengenalan Fitur Sinau') : (activeMenu || 'Dashboard Akademik & Pembelajaran'),
         current_page: typeof window !== 'undefined' ? window.location.pathname : (isPortal ? '/portal' : '/welcome'),
+        tutor_mode: inQuizOrExam ? 'socratic' : activeTutorMode,
+        in_quiz_or_exam: inQuizOrExam,
         active_filters: activeFilters,
         selected_asset: selectedAsset
           ? {
@@ -3027,6 +3165,15 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>Sesi Percakapan Baru</span>
+          </button>
+
+          <button
+            onClick={handleClearAllHistory}
+            className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-[11px] font-medium text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-dashed border-slate-200 hover:border-rose-200 transition cursor-pointer"
+            title="Bersihkan seluruh riwayat chat"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Bersihkan Semua Riwayat</span>
           </button>
         </div>
 
@@ -3161,6 +3308,100 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
           </span>
         </div>
 
+        {/* Intelligence Role-Aware Persona & Tutor Bar */}
+        {!isUserUmum && (
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-2 shrink-0">
+            {/* Socratic Critical Guardrail Banner if in exam */}
+            {inQuizOrExam && (
+              <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-2xs mb-1.5">
+                <div className="flex items-center gap-2 font-medium">
+                  <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span><strong>Mode Socratic Terkunci (Integritas Akademik):</strong> Ujian/Kuis aktif sedang berlangsung. Alesha memandu logika Anda tanpa memberikan jawaban jadi.</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold shrink-0">SOCRATIC LOCK</span>
+              </div>
+            )}
+
+            {/* Persona: Siswa -> 10 Mode Tutor Pills */}
+            {(effectiveRole.toLowerCase().includes('siswa') || effectiveRole.toLowerCase().includes('student')) ? (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1 shrink-0">
+                  <GraduationCap className="w-3.5 h-3.5 text-brand-700" /> 10 Mode Tutor:
+                </span>
+                {TUTOR_MODES.map((tm: TutorModeItem) => {
+                  const isCurActive = (inQuizOrExam ? 'socratic' : activeTutorMode) === tm.id;
+                  return (
+                    <button
+                      key={tm.id}
+                      onClick={() => !inQuizOrExam && setActiveTutorMode(tm.id)}
+                      disabled={inQuizOrExam}
+                      title={tm.title}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition shrink-0 cursor-pointer shadow-2xs ${
+                        isCurActive
+                          ? 'bg-brand-700 text-white font-semibold ring-2 ring-brand-300'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>{tm.icon}</span>
+                      <span>{tm.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (effectiveRole.toLowerCase().includes('guru') || effectiveRole.toLowerCase().includes('teacher') || effectiveRole.toLowerCase().includes('kaprodi') || effectiveRole.toLowerCase().includes('wake')) ? (
+              /* Persona: Guru -> AI Teaching Assistant Shortcuts */
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[11px] font-bold text-brand-800 flex items-center gap-1 shrink-0">
+                  <Brain className="w-3.5 h-3.5 text-brand-700" /> AI Teaching Assistant:
+                </span>
+                <button
+                  onClick={() => handleSendMessage('Saya ingin merancang modul ajar Kurikulum Merdeka untuk 3 pertemuan. Tolong buatkan draf siap pakai lengkap dengan Tujuan Pembelajaran (CP/TP), skenario per pertemuan, analogi kontekstual, latihan bertingkat, rubrik asesmen, dan rencana remedial.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-brand-50 hover:text-brand-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>📝 Rancang RPP 3 Pertemuan</span>
+                </button>
+                <button
+                  onClick={() => handleSendMessage('Tampilkan Absorption Heatmap tingkat penyerapan sub-konsep di kelas saya, beserta analisis miskonsepsi massal dari opsi pengecoh yang paling banyak salah dipilih siswa.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-brand-50 hover:text-brand-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>📊 Absorption Heatmap & Miskonsepsi</span>
+                </button>
+                <button
+                  onClick={() => handleSendMessage('Buatkan 3 butir soal latihan penguatan untuk konsep yang berstatus paling kritis di kelas saya.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-brand-50 hover:text-brand-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>🎯 Buat Soal Remedial</span>
+                </button>
+              </div>
+            ) : (
+              /* Persona: Kepala Sekolah / Admin -> AI Learning Analyst Shortcuts */
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[11px] font-bold text-indigo-800 flex items-center gap-1 shrink-0">
+                  <BarChart2 className="w-3.5 h-3.5 text-indigo-700" /> AI Learning Analyst:
+                </span>
+                <button
+                  onClick={() => handleSendMessage('Tampilkan ringkasan efektivitas kurikulum, ketercapaian capaian pembelajaran (CP), dan analisis kohort siswa sekolah.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>📈 Efektivitas Kurikulum</span>
+                </button>
+                <button
+                  onClick={() => handleSendMessage('Tampilkan ringkasan kesehatan operasional sekolah, persentase kehadiran guru-siswa, dan rekapitulasi pembayaran SPP bulan ini.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>🏫 Kesehatan Operasional & SPP</span>
+                </button>
+                <button
+                  onClick={() => handleSendMessage('Lembaga yang terdaftar ada di wilayah mana saja? Tampilkan daftar lembaga beserta lokasi kota dan provinsinya.')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-800 transition shrink-0 shadow-2xs cursor-pointer"
+                >
+                  <span>📍 Lembaga & Wilayah</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Message Feed */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
           {messages.length === 0 ? (
@@ -3228,9 +3469,28 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                       <div className="whitespace-pre-wrap font-sans text-xs break-words leading-relaxed font-medium">
                         {m.content}
                       </div>
-                    ) : (
-                      <MarkdownViewer content={m.content} onExpandChart={setExpandedChart} />
-                    )}
+                    ) : (() => {
+                      const { cleanContent, actions } = extractActionButtons(m.content);
+                      return (
+                        <>
+                          <MarkdownViewer content={cleanContent} onExpandChart={setExpandedChart} />
+                          {actions.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                              {actions.map((act: ActionButton, actIdx: number) => (
+                                <button
+                                  key={actIdx}
+                                  onClick={() => handleSendMessage(act.prompt)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-200 text-[11px] font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
+                                >
+                                  <Sparkles className="w-3 h-3 text-brand-600" />
+                                  <span>{act.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     {/* Copy and Actions for Assistant */}
                     {!isUser && (

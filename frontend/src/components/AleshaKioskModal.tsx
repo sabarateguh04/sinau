@@ -71,11 +71,14 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
   });
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Dynamic user profile resolution directly from localStorage ('korlantas_user_profile') or props
+  // Dynamic user profile resolution: prioritize explicitly passed currentUser props
   const effectiveUser: UserProfile | null = useMemo(() => {
+    if (currentUser && (currentUser.full_name || currentUser.fullName || currentUser.username)) {
+      return currentUser;
+    }
     if (typeof window !== 'undefined') {
       try {
-        const saved = secureStorage.getItem('korlantas_user_profile');
+        const saved = secureStorage.getItem('sinau_user_profile') || secureStorage.getItem('korlantas_user_profile');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && (parsed.full_name || parsed.fullName || parsed.username)) {
@@ -83,11 +86,8 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           }
         }
       } catch (e) {
-        console.warn('[AleshaKioskModal] Failed to read korlantas_user_profile from localStorage', e);
+        console.warn('[AleshaKioskModal] Failed to read user_profile from localStorage', e);
       }
-    }
-    if (currentUser && (currentUser.full_name || currentUser.fullName || currentUser.username)) {
-      return currentUser;
     }
     return null;
   }, [currentUser]);
@@ -166,9 +166,11 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
         url.searchParams.set('user_unit', 'Portal Publik SINAU');
       }
 
-      // Shared Memory Session ID Bridge with Chatbot
-      const storedSessionId = activeChatSessionId || (typeof window !== 'undefined' ? localStorage.getItem('sm_logistik_ai_session_id') : null);
-      const fallbackSessionId = effectiveUser?.id ? `session-logistik-${effectiveUser.id}` : 'session-logistik-guest';
+      // Shared Memory Session ID Bridge with Chatbot (Sinau Scope)
+      const userScope = effectiveUser?.id ? `usr_${effectiveUser.id}` : (effectiveUser?.username ? `usr_${effectiveUser.username}` : 'visitor');
+      const activeSessionKey = `sm_sinau_ai_active_session_id_${userScope}`;
+      const storedSessionId = activeChatSessionId || (typeof window !== 'undefined' ? (localStorage.getItem(activeSessionKey) || localStorage.getItem('sm_sinau_ai_session_id')) : null);
+      const fallbackSessionId = effectiveUser?.id ? `sinau_${userScope}_${effectiveUser.id}` : `sinau_${userScope}_kiosk`;
       const activeSessionId = storedSessionId || fallbackSessionId;
       url.searchParams.set('session_id', activeSessionId);
       url.searchParams.set('shared_session_id', activeSessionId);
@@ -280,7 +282,60 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
     const handleSessionSync = (event: MessageEvent) => {
       if (event.data && event.data.type === 'ALESHA_SESSION_SYNC' && event.data.sessionId) {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('sm_logistik_ai_session_id', event.data.sessionId);
+          const userScope = effectiveUser?.id ? `usr_${effectiveUser.id}` : (effectiveUser?.username ? `usr_${effectiveUser.username}` : 'visitor');
+          localStorage.setItem(`sm_sinau_ai_active_session_id_${userScope}`, event.data.sessionId);
+          localStorage.setItem('sm_sinau_ai_session_id', event.data.sessionId);
+        }
+      } else if (event.data && event.data.type === 'ALESHA_CHAT_MESSAGE') {
+        const { sessionId, userMessage, assistantMessage } = event.data;
+        if (typeof window !== 'undefined' && sessionId) {
+          const userScope = effectiveUser?.id ? `usr_${effectiveUser.id}` : (effectiveUser?.username ? `usr_${effectiveUser.username}` : 'visitor');
+          const msgKey = `sm_sinau_ai_messages_${userScope}_${sessionId}`;
+          try {
+            const existing = JSON.parse(localStorage.getItem(msgKey) || '[]');
+            const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            if (userMessage) {
+              existing.push({
+                id: `usr-${Date.now()}`,
+                sessionId,
+                role: 'user',
+                content: userMessage,
+                timestamp: now
+              });
+            }
+            if (assistantMessage) {
+              existing.push({
+                id: `bot-${Date.now() + 1}`,
+                sessionId,
+                role: 'assistant',
+                content: assistantMessage,
+                timestamp: now
+              });
+            }
+            localStorage.setItem(msgKey, JSON.stringify(existing));
+            window.dispatchEvent(new CustomEvent('alesha_chat_updated', { detail: { sessionId } }));
+          } catch(e) {}
+
+          // Increment & sync voice quota for public visitor immediately
+          if (typeof event.data.voice_prompt_count === 'number') {
+            const vCount = event.data.voice_prompt_count;
+            setPublicPromptCount(vCount);
+            setIsLimitReached(vCount >= 5);
+            try {
+              sessionStorage.setItem('sinau_voice_prompt_count', String(vCount));
+            } catch (_) {}
+          } else {
+            setPublicPromptCount(prev => {
+              const next = Math.min(5, prev + 1);
+              try { sessionStorage.setItem('sinau_voice_prompt_count', String(next)); } catch (_) {}
+              if (next >= 5) setIsLimitReached(true);
+              return next;
+            });
+          }
+          if (event.data.limit_reached) {
+            setIsLimitReached(true);
+            setPublicPromptCount(5);
+          }
         }
       }
     };
