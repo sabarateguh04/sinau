@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Send,
@@ -2487,7 +2487,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
     const saved = localStorage.getItem(storageKeys.activeSession);
     const initialSessions = loadUserSessions(userScope, currentUser?.id || 'usr_sinau');
-    if (saved && initialSessions.some((s) => s.id === saved)) {
+    if (saved && initialSessions.some((s: AiChatSession) => s.id === saved)) {
       return saved;
     }
     return initialSessions[0]?.id || `sinau_${userScope}_${Date.now()}`;
@@ -2496,7 +2496,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const savedActive = localStorage.getItem(storageKeys.activeSession);
     const initialSessions = loadUserSessions(userScope, currentUser?.id || 'usr_sinau');
-    const sId = (savedActive && initialSessions.some((s) => s.id === savedActive))
+    const sId = (savedActive && initialSessions.some((s: AiChatSession) => s.id === savedActive))
       ? savedActive
       : initialSessions[0]?.id;
     return sId ? loadSessionMessages(userScope, sId) : [];
@@ -2526,7 +2526,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
     const currentSessions = loadUserSessions(userScope, currentUser?.id || 'usr_sinau');
     setSessions(currentSessions);
     const savedActive = localStorage.getItem(storageKeys.activeSession);
-    const targetActiveId = (savedActive && currentSessions.some((s) => s.id === savedActive))
+    const targetActiveId = (savedActive && currentSessions.some((s: AiChatSession) => s.id === savedActive))
       ? savedActive
       : (currentSessions[0]?.id || `sinau_${userScope}_${Date.now()}`);
     setActiveSessionId(targetActiveId);
