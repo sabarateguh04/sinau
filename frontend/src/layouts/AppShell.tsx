@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AleshaWidget } from '@/components/AleshaWidget';
+import { AleshaFloatingAssistant } from '@/components/AleshaFloatingAssistant';
 import { Menu, X, Bell, ChevronsLeft, ChevronsRight, LogOut, Moon, Sun, Monitor, Building2, ChevronDown, UserCircle2, Search, Wifi, WifiOff } from 'lucide-react';
 import { useAuth, rolePrefix, homeOf } from '@/store/auth';
 import { useUi, toast } from '@/store/ui';
@@ -48,9 +48,48 @@ export default function AppShell() {
             <ul className="space-y-0.5">
               {s.items.map((it) => (
                 <li key={it.to}>
-                  <NavLink to={`/${prefix}/${it.to}`} title={mini ? it.label : undefined} className={({ isActive }) => cx('group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition', mini && 'justify-center px-0', isActive ? 'bg-brand-700 text-white shadow-sm shadow-brand-700/30' : 'text-ink-2 hover:bg-surface-3 hover:text-ink')}>
-                    <it.icon className="h-[18px] w-[18px] shrink-0" />
-                    {!mini && <span className="truncate">{it.label}</span>}
+                  <NavLink
+                    to={`/${prefix}/${it.to}`}
+                    title={mini ? it.label : undefined}
+                    className={({ isActive }) => cx(
+                      'group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition',
+                      mini && 'justify-center px-0',
+                      isActive ? 'bg-brand-700 text-white shadow-sm shadow-brand-700/30' : 'text-ink-2 hover:bg-surface-3 hover:text-ink'
+                    )}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div className="relative flex items-center justify-center shrink-0">
+                          <it.icon className={cx(
+                            'h-[18px] w-[18px] shrink-0 transition-colors',
+                            it.badge === 'AI' && !isActive && 'text-cyan-400 group-hover:text-cyan-300'
+                          )} />
+                          {mini && it.badge === 'AI' && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-cyan-400 animate-pulse ring-2 ring-surface" />
+                          )}
+                        </div>
+                        {!mini && (
+                          <>
+                            <span className="truncate flex-1">{it.label}</span>
+                            {it.badge && (
+                              it.badge === 'AI' ? (
+                                <span className="ml-auto text-[10px] bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs shadow-cyan-500/30 flex items-center gap-1 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-200 animate-pulse"></span>
+                                  AI
+                                </span>
+                              ) : (
+                                <span className={cx(
+                                  'ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0',
+                                  isActive ? 'bg-white/20 text-white' : 'bg-brand-500/15 text-brand-700'
+                                )}>
+                                  {it.badge}
+                                </span>
+                              )
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
                   </NavLink>
                 </li>
               ))}
@@ -94,7 +133,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
-      <AleshaWidget />
+      <AleshaFloatingAssistant />
     </div>
   );
 

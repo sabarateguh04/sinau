@@ -9,6 +9,8 @@ const L = (f: () => Promise<{ default: ComponentType }>) => lazy(f);
 
 export const PAGES: PageDef[] = [
   { path: 'dashboard', component: L(() => import('./dashboard/Dashboard')) },
+  { path: 'chat-ai', component: L(() => import('./ai/AiChatPage')) },
+  { path: 'ai-chat', component: L(() => import('./ai/AiChatPage')) },
   { path: 'profil', component: L(() => import('./account/Profile')) },
   { path: 'notifikasi', component: L(() => import('./account/Notifications')) },
   { path: 'pengumuman', component: L(() => import('./communication/Announcements')) },
