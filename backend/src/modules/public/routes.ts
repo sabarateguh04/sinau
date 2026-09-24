@@ -82,7 +82,7 @@ r.post('/tenants/:slug/contact', loginLimiter, validate(z.object({ name: z.strin
 r.get('/portal', wrap(async (req, res) => {
   const { page, limit, offset } = paging(req.query, 50);
   const params: unknown[] = [];
-  let where = `WHERE m.is_published = 1 AND t.is_active = 1 AND (sh.id IS NOT NULL OR (s.portal_share = 'AUTO' AND m.is_public = 1))`;
+  let where = `WHERE m.is_published = 1 AND t.is_active = 1 AND (m.is_public = 1 OR sh.id IS NOT NULL)`;
   if (str(req.query.tenant)) { where += ' AND t.slug = ?'; params.push(String(req.query.tenant)); }
   const q = str(req.query.q);
   if (q) { where += ' AND (m.title LIKE ? OR m.description LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
@@ -92,7 +92,7 @@ r.get('/portal', wrap(async (req, res) => {
   paged(res, rows, { page, limit, total });
 }));
 r.get('/portal/:id', wrap(async (req, res) => {
-  const m = await queryOne(`SELECT m.*, t.name AS tenant_name, t.slug AS tenant_slug, f.original_name AS file_name, f.mime AS file_mime, f.is_public AS file_public FROM \`${T('materials')}\` m JOIN \`${T('tenants')}\` t ON t.id = m.tenant_id LEFT JOIN \`${T('tenant_settings')}\` s ON s.tenant_id = t.id LEFT JOIN \`${T('module_portal_shares')}\` sh ON sh.material_id = m.id LEFT JOIN \`${T('files')}\` f ON f.id = m.file_id WHERE m.id = ? AND m.is_published = 1 AND (sh.id IS NOT NULL OR (s.portal_share = 'AUTO' AND m.is_public = 1))`, [req.params.id]);
+  const m = await queryOne(`SELECT m.*, t.name AS tenant_name, t.slug AS tenant_slug, f.original_name AS file_name, f.mime AS file_mime, f.is_public AS file_public FROM \`${T('materials')}\` m JOIN \`${T('tenants')}\` t ON t.id = m.tenant_id LEFT JOIN \`${T('tenant_settings')}\` s ON s.tenant_id = t.id LEFT JOIN \`${T('module_portal_shares')}\` sh ON sh.material_id = m.id LEFT JOIN \`${T('files')}\` f ON f.id = m.file_id WHERE m.id = ? AND m.is_published = 1 AND (m.is_public = 1 OR sh.id IS NOT NULL)`, [req.params.id]);
   if (!m) throw notFound();
   await execute(`UPDATE \`${T('materials')}\` SET view_count = view_count + 1 WHERE id = ?`, [m.id]);
   if (m.file_id && !m.file_public) await execute(`UPDATE \`${T('files')}\` SET is_public = 1 WHERE id = ?`, [m.file_id]); // shared material files become public
