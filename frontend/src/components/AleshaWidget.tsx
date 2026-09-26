@@ -97,11 +97,27 @@ const saveMessages = (_m: Msg[]) => {
 };
 
 /** Parser format inline: **bold**, *italic*, `code`, [link](url) */
-function parseInline(text: string): React.ReactNode {
+function parseInline(text: string, onAction?: (prompt: string) => void): React.ReactNode {
   if (!text) return '';
-  const parts = text.split(/(\*\*[^*]+?\*\*|`[^`]+?`|\*[^*]+?\*|_[^_]+?_|\[[^\]]+\]\s*\([^)\s]+\))/g);
+  const parts = text.split(/(\*\*[^*]+?\*\*|`[^`]+?`|\*[^*]+?\*|_[^_]+?_|\[action:[^\|\]]+(?:\|[^\]]*)?\]|\[[^\]]+\]\s*\([^)\s]+\))/g);
 
   return parts.map((part, index) => {
+    const actionMatch = part.match(/^\[action:([^\|\]]+)(?:\|([^\]]*))?\]$/);
+    if (actionMatch) {
+      const label = actionMatch[1].trim();
+      const prompt = (actionMatch[2] || label).trim();
+      return (
+        <button
+          key={index}
+          type="button"
+          onClick={() => onAction && onAction(prompt)}
+          className="my-1 mr-1.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+          <span>{label}</span>
+        </button>
+      );
+    }
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={index} className="font-semibold text-ink dark:text-white">
@@ -243,7 +259,7 @@ function renderTable(rows: string[][], key: string | number) {
 }
 
 /** RichText with full Markdown parsing: Tables, Badges, Lists, Quotes, Headings, and Code */
-function RichText({ text }: { text: string }) {
+function RichText({ text, onAction }: { text: string; onAction?: (prompt: string) => void }) {
   if (!text) return null;
 
   const lines = text.split('\n');
@@ -256,6 +272,26 @@ function RichText({ text }: { text: string }) {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
+
+    // Action button on single line: [action:Label|Prompt] or [action:Label]
+    const actionMatch = trimmed.match(/^\[action:([^\|\]]+)(?:\|([^\]]*))?\]$/);
+    if (actionMatch) {
+      const label = actionMatch[1].trim();
+      const prompt = (actionMatch[2] || label).trim();
+      elements.push(
+        <div key={`act-${i}`} className="my-2">
+          <button
+            type="button"
+            onClick={() => onAction && onAction(prompt)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+            <span>{label}</span>
+          </button>
+        </div>
+      );
+      continue;
+    }
 
     // Code block ```
     if (trimmed.startsWith('```')) {
@@ -315,7 +351,7 @@ function RichText({ text }: { text: string }) {
       const headingText = trimmed.replace(/^#+\s*/, '');
       elements.push(
         <p key={`h-${i}`} className={cx('font-bold text-ink mt-2 mb-1', level <= 2 ? 'text-sm' : 'text-xs')}>
-          {parseInline(headingText)}
+          {parseInline(headingText, onAction)}
         </p>
       );
       continue;
@@ -326,7 +362,7 @@ function RichText({ text }: { text: string }) {
       const quoteText = trimmed.replace(/^>\s*/, '');
       elements.push(
         <blockquote key={`q-${i}`} className="pl-3 border-l-2 border-brand-500 italic text-ink-2 my-1 text-xs bg-brand-500/5 py-1 rounded-r">
-          {parseInline(quoteText)}
+          {parseInline(quoteText, onAction)}
         </blockquote>
       );
       continue;
@@ -340,7 +376,7 @@ function RichText({ text }: { text: string }) {
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-[10px] font-bold text-brand-700 dark:text-brand-300">
             {numMatch[1]}
           </span>
-          <div className="flex-1 leading-relaxed pt-0.5">{parseInline(numMatch[2])}</div>
+          <div className="flex-1 leading-relaxed pt-0.5">{parseInline(numMatch[2], onAction)}</div>
         </div>
       );
       continue;
@@ -352,7 +388,7 @@ function RichText({ text }: { text: string }) {
       elements.push(
         <div key={`bullet-${i}`} className="flex items-start gap-2 my-0.5 text-xs">
           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
-          <div className="flex-1 leading-relaxed">{parseInline(bulletMatch[1])}</div>
+          <div className="flex-1 leading-relaxed">{parseInline(bulletMatch[1], onAction)}</div>
         </div>
       );
       continue;
@@ -367,7 +403,7 @@ function RichText({ text }: { text: string }) {
     // Standard paragraph line
     elements.push(
       <p key={`p-${i}`} className="min-h-[1.2em] leading-relaxed">
-        {parseInline(rawLine)}
+        {parseInline(rawLine, onAction)}
       </p>
     );
   }
@@ -861,7 +897,7 @@ export function AleshaWidget() {
                               : 'rounded-bl-md bg-surface-2 text-ink border border-line/60'
                           )}
                         >
-                          <RichText text={m.content} />
+                          <RichText text={m.content} onAction={(prompt) => { if (!thinking && !isLimitReached) { void send(prompt); } }} />
                         </div>
 
                         {/* Interactive Link Chip to /portal if assistant recommended it while on /welcome */}

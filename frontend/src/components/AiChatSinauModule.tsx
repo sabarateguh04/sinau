@@ -41,8 +41,13 @@ import {
   GraduationCap,
   Brain,
   Zap,
-  HelpCircle
+  HelpCircle,
+  Activity,
+  BookmarkCheck,
+  Save,
+  AlertTriangle
 } from 'lucide-react';
+import { api } from '../lib/api';
 import {
   ResponsiveContainer,
   BarChart,
@@ -1688,6 +1693,474 @@ function AleshaChartViewer({ chartData, onExpand, isModal = false }: AleshaChart
   );
 }
 
+// Subcomponent: AleshaAbsorptionHeatmapViewer
+export interface HeatmapItem {
+  concept: string;
+  code?: string;
+  rate: number; // 0 to 100
+  status?: string; // 'Baik' | 'Cukup' | 'Kritis'
+  answered?: number;
+  correct?: number;
+  note?: string;
+}
+
+export interface AbsorptionHeatmapData {
+  title?: string;
+  subject?: string;
+  className?: string;
+  class_name?: string;
+  summary?: string;
+  items: HeatmapItem[];
+}
+
+function AleshaAbsorptionHeatmapViewer({
+  data,
+  onAction,
+}: {
+  data: AbsorptionHeatmapData;
+  onAction?: (prompt: string) => void;
+}) {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const title = data?.title || 'Absorption Heatmap - Penguasaan Sub-Konsep';
+  const subject = data?.subject || data?.className || data?.class_name || 'Umum';
+
+  const criticalCount = items.filter(
+    (it) => Number(it.rate || 0) < 65 || String(it.status || '').toLowerCase() === 'kritis'
+  ).length;
+  const goodCount = items.filter(
+    (it) => Number(it.rate || 0) >= 80 || String(it.status || '').toLowerCase() === 'baik'
+  ).length;
+
+  return (
+    <div className="my-3 rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden transition-all">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Activity className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h5 className="text-xs sm:text-sm font-bold text-white truncate tracking-tight">
+                {title}
+              </h5>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-500/30 text-brand-200 border border-brand-400/40 shrink-0">
+                {subject}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 truncate">
+              {items.length} Sub-Konsep &bull; {goodCount} Dikuasai Baik{' '}
+              {criticalCount > 0 && (
+                <span className="text-rose-400 font-semibold">
+                  &bull; {criticalCount} Kritis
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0 text-[10px] text-slate-300">
+          <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Baik (&ge;80%)
+          <span className="w-2 h-2 rounded-full bg-amber-400 ml-1.5"></span> Cukup (65-79%)
+          <span className="w-2 h-2 rounded-full bg-rose-400 ml-1.5"></span> Kritis (&lt;65%)
+        </div>
+      </div>
+
+      {/* Grid Matrix */}
+      <div className="p-3.5 sm:p-4 bg-slate-50/50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+          {items.map((it, idx) => {
+            const rate = Number(it.rate || 0);
+            const isGood = rate >= 80 || String(it.status || '').toLowerCase() === 'baik';
+            const isCrit = rate < 65 || String(it.status || '').toLowerCase() === 'kritis';
+            const statusLabel = isGood ? 'Baik' : isCrit ? 'Kritis' : 'Cukup';
+
+            const cardBorder = isGood
+              ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300'
+              : isCrit
+                ? 'border-rose-200 bg-rose-50/40 hover:border-rose-300'
+                : 'border-amber-200 bg-amber-50/40 hover:border-amber-300';
+
+            const badgeStyle = isGood
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+              : isCrit
+                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                : 'bg-amber-100 text-amber-800 border-amber-300';
+
+            const meterColor = isGood ? 'bg-emerald-500' : isCrit ? 'bg-rose-500' : 'bg-amber-500';
+
+            return (
+              <div
+                key={idx}
+                className={`p-3 rounded-xl border ${cardBorder} shadow-2xs transition flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                    <span className="text-xs font-bold text-slate-800 line-clamp-2">
+                      {it.concept}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${badgeStyle}`}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  {it.code && <div className="text-[10px] text-slate-400 font-mono mb-1">{it.code}</div>}
+                </div>
+
+                <div className="mt-2 pt-2 border-t border-slate-200/60">
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="text-lg font-black tracking-tight text-slate-800">
+                      {rate.toFixed(1)}%
+                    </span>
+                    {it.answered !== undefined && (
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {it.correct || 0}/{it.answered} benar
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`${meterColor} h-full rounded-full transition-all duration-500`}
+                      style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
+                    />
+                  </div>
+
+                  {isCrit && onAction && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAction(
+                          `Buatkan rencana remedial dan 3 butir soal latihan penguatan bertingkat untuk konsep '${it.concept}' yang berstatus Kritis (${rate.toFixed(1)}%).`
+                        )
+                      }
+                      className="mt-2.5 w-full py-1 px-2 rounded-lg text-[10px] font-bold text-rose-700 bg-rose-100/90 hover:bg-rose-200 border border-rose-300 transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                    >
+                      <Zap className="w-3 h-3 text-rose-600" /> Buat Remedial
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-2.5 px-3 py-2 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500">
+          <span>
+            💡 <strong>Prinsip Kurikulum Merdeka:</strong> Nilai tunggal menyembunyikan diagnosis belajar; prioritaskan intervensi pada konsep berstatus Kritis.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Subcomponent: AleshaMisconceptionsViewer
+export interface MisconceptionItem {
+  concept: string;
+  subject?: string;
+  misconception: string;
+  student_count?: number;
+  percentage?: number;
+  recommendation?: string;
+  analogy?: string;
+}
+
+export interface MisconceptionsData {
+  title?: string;
+  subject?: string;
+  items: MisconceptionItem[];
+}
+
+function AleshaMisconceptionsViewer({
+  data,
+  onAction,
+}: {
+  data: MisconceptionsData;
+  onAction?: (prompt: string) => void;
+}) {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const title = data?.title || 'Deteksi Miskonsepsi Massal & Pola Pengecoh Kuis';
+  const subject = data?.subject || 'Umum';
+
+  return (
+    <div className="my-3 rounded-2xl border border-rose-200/80 bg-white shadow-xs overflow-hidden transition-all">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-rose-950 via-slate-900 to-rose-950 text-white flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-400/30 flex items-center justify-center text-rose-400 shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h5 className="text-xs sm:text-sm font-bold text-white truncate tracking-tight">
+                {title}
+              </h5>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/30 text-rose-200 border border-rose-400/40 shrink-0">
+                {subject}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 truncate">
+              {items.length} Pola Pengecoh (Distractor) Kritis Terdeteksi
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Cards List */}
+      <div className="p-3.5 sm:p-4 bg-slate-50/50 space-y-3">
+        {items.map((it, idx) => (
+          <div
+            key={idx}
+            className="p-3.5 rounded-xl border border-rose-200 bg-white shadow-2xs hover:border-rose-300 transition"
+          >
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                  {it.concept}
+                </span>
+                {it.subject && (
+                  <span className="ml-1.5 text-[10px] text-slate-400">
+                    &bull; {it.subject}
+                  </span>
+                )}
+              </div>
+              {it.student_count !== undefined && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
+                  {it.student_count} Siswa Terkecoh {it.percentage ? `(${it.percentage}%)` : ''}
+                </span>
+              )}
+            </div>
+
+            <div className="mb-2.5">
+              <div className="text-xs font-bold text-slate-800 flex items-baseline gap-1.5">
+                <span className="text-rose-500 font-black">&times;</span>
+                <span>Pola Miskonsepsi:</span>
+              </div>
+              <p className="text-xs text-slate-700 font-medium pl-3 mt-0.5 border-l-2 border-rose-300 italic">
+                &ldquo;{it.misconception}&rdquo;
+              </p>
+            </div>
+
+            {(it.recommendation || it.analogy) && (
+              <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-slate-700 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-800 mb-0.5 text-[11px]">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Solusi & Analogi Pembebas Miskonsepsi:</span>
+                </div>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  {it.analogy || it.recommendation}
+                </p>
+              </div>
+            )}
+
+            {onAction && (
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAction(
+                      `Rancang skenario bimbingan remedial dan 2 analogi kontekstual untuk mengatasi miskonsepsi: '${it.misconception}' pada konsep '${it.concept}'.`
+                    )
+                  }
+                  className="px-3 py-1 rounded-lg text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Zap className="w-3 h-3 text-rose-600" />
+                  <span>Rancang Analogi Remedial</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Subcomponent: SaveLessonPlanModal
+interface SaveLessonPlanModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData: {
+    title: string;
+    subject: string;
+    gradeLevel?: number;
+    meetings?: number;
+    content: string;
+  };
+  onSaved?: (title: string) => void;
+}
+
+function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLessonPlanModalProps) {
+  const [title, setTitle] = useState(initialData.title || 'Modul Ajar Kurikulum Merdeka');
+  const [subject, setSubject] = useState(initialData.subject || 'Umum');
+  const [gradeLevel, setGradeLevel] = useState<number>(initialData.gradeLevel || 10);
+  const [content, setContent] = useState(initialData.content || '');
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(initialData.title || 'Modul Ajar Kurikulum Merdeka');
+      setSubject(initialData.subject || 'Umum');
+      setGradeLevel(initialData.gradeLevel || 10);
+      setContent(initialData.content || '');
+      setSuccess(false);
+      setErrorMsg('');
+    }
+  }, [isOpen, initialData]);
+
+  if (!isOpen) return null;
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setErrorMsg('Judul modul ajar wajib diisi.');
+      return;
+    }
+    setSaving(true);
+    setErrorMsg('');
+    try {
+      const payload = {
+        title: title.trim(),
+        description: 'Draf Modul Ajar Kurikulum Merdeka - Disusun otomatis oleh AI Lesson Assistant Alesha',
+        type: 'TEXT',
+        content_text: content,
+        grade_level: Number(gradeLevel) || 10,
+        is_published: true,
+        is_public: false,
+      };
+
+      try {
+        await api.post('/materials', payload);
+      } catch (apiErr: any) {
+        // Fallback: If mock or offline, save to localStorage so teacher doesn't lose it
+        const savedList = JSON.parse(localStorage.getItem('sinau_saved_modules') || '[]');
+        savedList.unshift({ id: `mod_${Date.now()}`, ...payload, created_at: new Date().toISOString() });
+        localStorage.setItem('sinau_saved_modules', JSON.stringify(savedList));
+      }
+
+      setSuccess(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sinau_materials_updated'));
+      }
+      setTimeout(() => {
+        onSaved?.(title);
+        onClose();
+      }, 1200);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Gagal menyimpan modul ajar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-400/30 flex items-center justify-center text-brand-300">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-white">Simpan ke Modul Materi Kelas</h4>
+              <p className="text-xs text-slate-300">Draf Kurikulum Merdeka siap diterbitkan ke LMS SM-Sinau</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar text-xs">
+          {success ? (
+            <div className="py-8 flex flex-col items-center justify-center text-center space-y-2">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
+              <h4 className="text-base font-bold text-slate-800">Modul Ajar Berhasil Disimpan!</h4>
+              <p className="text-xs text-slate-500">Draf telah tercatat di modul kelas SM-Sinau dan siap digunakan guru.</p>
+            </div>
+          ) : (
+            <>
+              {errorMsg && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Modul Ajar</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50"
+                    placeholder="Contoh: Modul Ajar Pecahan & Aljabar Dasar"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Tingkat Kelas</label>
+                  <select
+                    value={gradeLevel}
+                    onChange={(e) => setGradeLevel(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50"
+                  >
+                    <option value={10}>Kelas 10</option>
+                    <option value={11}>Kelas 11</option>
+                    <option value={12}>Kelas 12</option>
+                    <option value={7}>Kelas 7</option>
+                    <option value={8}>Kelas 8</option>
+                    <option value={9}>Kelas 9</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Isi & Rancangan Modul Ajar (CP/TP, Skenario, Asesmen)</label>
+                <textarea
+                  rows={10}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 resize-y custom-scrollbar"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!success && (
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-brand-700 hover:bg-brand-800 active:scale-95 shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <BookmarkCheck className="w-4 h-4" />}
+              <span>{saving ? 'Menyimpan...' : 'Simpan Sekarang ke Modul Kelas'}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // Markdown Message Renderer
 /**
  * Lightweight Markdown Parser & Renderer Component (No External Lib Dependencies)
@@ -1696,9 +2169,10 @@ interface MarkdownViewerProps {
   content: string;
   onExpandChart?: (chartData: any) => void;
   onPreviewImage?: (img: { src: string; title: string }) => void;
+  onAction?: (prompt: string) => void;
 }
 
-function MarkdownViewer({ content, onExpandChart, onPreviewImage }: MarkdownViewerProps) {
+function MarkdownViewer({ content, onExpandChart, onPreviewImage, onAction }: MarkdownViewerProps) {
   const renderedElements = useMemo(() => {
     if (!content) return null;
 
@@ -1788,6 +2262,46 @@ function MarkdownViewer({ content, onExpandChart, onPreviewImage }: MarkdownView
               );
             } catch (jsonErr) {
               console.warn('[MarkdownViewer] Failed to parse chart block JSON:', jsonErr);
+              elements.push(
+                <pre key={`code-${i}`} className="p-3.5 my-2.5 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
+                  <code>{codeBlockText.trim()}</code>
+                </pre>
+              );
+            }
+          } else if (lang.startsWith('misconception') || lang.startsWith('json:misconception')) {
+            try {
+              let cleaned = codeBlockText.trim();
+              cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+              const miscData = JSON.parse(cleaned);
+              elements.push(
+                <AleshaMisconceptionsViewer
+                  key={`misc-${i}`}
+                  data={miscData}
+                  onAction={onAction}
+                />
+              );
+            } catch (jsonErr) {
+              console.warn('[MarkdownViewer] Failed to parse misconception block JSON:', jsonErr);
+              elements.push(
+                <pre key={`code-${i}`} className="p-3.5 my-2.5 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
+                  <code>{codeBlockText.trim()}</code>
+                </pre>
+              );
+            }
+          } else if (lang.startsWith('heatmap') || lang.startsWith('json:heatmap') || lang.includes('absorption')) {
+            try {
+              let cleaned = codeBlockText.trim();
+              cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+              const heatmapData = JSON.parse(cleaned);
+              elements.push(
+                <AleshaAbsorptionHeatmapViewer
+                  key={`heatmap-${i}`}
+                  data={heatmapData}
+                  onAction={onAction}
+                />
+              );
+            } catch (jsonErr) {
+              console.warn('[MarkdownViewer] Failed to parse heatmap block JSON:', jsonErr);
               elements.push(
                 <pre key={`code-${i}`} className="p-3.5 my-2.5 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
                   <code>{codeBlockText.trim()}</code>
@@ -2486,7 +3000,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         toRemove.forEach(k => localStorage.removeItem(k));
         localStorage.setItem('sm_sinau_ai_storage_version', STORAGE_CLEAN_VERSION);
       }
-    } catch {}
+    } catch { }
   }
 
   const storageKeys = useMemo(() => ({
@@ -2504,7 +3018,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Filter out any vault-injected or stale sessions
-          const cleaned = parsed.filter((s: any) => 
+          const cleaned = parsed.filter((s: any) =>
             s && s.title &&
             !s.title.includes('📑') &&
             !s.title.includes('ðŸ“‘') &&
@@ -2576,6 +3090,44 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTutorMode, setActiveTutorMode] = useState<string>('explain');
+  const [savePlanModal, setSavePlanModal] = useState<{
+    isOpen: boolean;
+    data: { title: string; subject: string; gradeLevel: number; meetings: number; content: string };
+  }>({
+    isOpen: false,
+    data: { title: '', subject: 'Umum', gradeLevel: 10, meetings: 3, content: '' },
+  });
+
+  const handleOpenSavePlanModal = (fullAssistantMessage: string, promptTag: string) => {
+    let planTitle = 'Modul Ajar Kurikulum Merdeka';
+    let planSubject = 'Umum';
+    let planGrade = 10;
+    let planContent = fullAssistantMessage.replace(/\[action:[^\]]+\]/g, '').trim();
+
+    if (promptTag.startsWith('SIMPAN_MODUL:')) {
+      try {
+        const jsonStr = promptTag.slice(13).trim();
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.title) planTitle = parsed.title;
+        if (parsed.subject) planSubject = parsed.subject;
+        if (parsed.grade) planGrade = Number(parsed.grade) || 10;
+        if (parsed.content) planContent = parsed.content;
+      } catch (e) {
+        console.warn('Failed to parse SIMPAN_MODUL JSON:', e);
+      }
+    }
+
+    setSavePlanModal({
+      isOpen: true,
+      data: {
+        title: planTitle,
+        subject: planSubject,
+        gradeLevel: planGrade,
+        meetings: 3,
+        content: planContent,
+      },
+    });
+  };
 
   // Deteksi pengerjaan kuis/ujian aktif untuk penegakan mode Socratic
   const inQuizOrExam = typeof window !== 'undefined' && (
@@ -2675,7 +3227,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         }
       }
       toRemove.forEach(k => localStorage.removeItem(k));
-    } catch {}
+    } catch { }
     const newId = `sinau_${userScope}_${Date.now()}`;
     const cleanSession: AiChatSession = {
       id: newId,
@@ -2691,7 +3243,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
       localStorage.setItem(storageKeys.sessions, JSON.stringify([cleanSession]));
       localStorage.setItem(storageKeys.activeSession, newId);
       localStorage.setItem('sm_sinau_ai_session_id', newId);
-    } catch {}
+    } catch { }
   };
 
   // Handle creating new session
@@ -3141,123 +3693,120 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
     <div className="flex h-full w-full bg-slate-50 text-slate-800 overflow-hidden select-text">
       {/* Sessions Sidebar matching SM-Sinau */}
       {!isUserUmum && (
-      <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col shadow-xs">
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-700 to-emerald-600 flex items-center justify-center text-white shadow-sm shadow-brand-700/20">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">Alesha AI Chat</h2>
-                <p className="text-[11px] text-slate-500">Smart Academic & SIS Assistant</p>
-              </div>
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Live
-            </span>
-          </div>
-
-          <button
-            onClick={handleCreateNewSession}
-            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-sm shadow-blue-600/30 transition-all active:scale-[0.99] cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Sesi Percakapan Baru</span>
-          </button>
-
-          <button
-            onClick={handleClearAllHistory}
-            className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-[11px] font-medium text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-dashed border-slate-200 hover:border-rose-200 transition cursor-pointer"
-            title="Bersihkan seluruh riwayat chat"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Bersihkan Semua Riwayat</span>
-          </button>
-        </div>
-
-        {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar bg-slate-50/30">
-          {sessions.length === 0 ? (
-            <div className="text-center py-10 px-4 text-xs text-slate-400">
-              <MessageSquare className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-              <p className="font-medium text-slate-600">Belum ada riwayat percakapan</p>
-              <p className="text-[11px] mt-1 text-slate-400">Mulai sesi baru untuk konsultasi data akademik, presensi, tugas & nilai.</p>
-            </div>
-          ) : (
-            sessions.map((s) => {
-              const isActive = s.id === activeSessionId;
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => handleSelectSession(s.id)}
-                  className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition cursor-pointer ${isActive
-                    ? 'bg-brand-50 dark:bg-brand-900/30/90 text-brand-800 dark:text-brand-300 border border-brand-200 dark:border-brand-800/40 font-semibold shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <MessageSquare className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-brand-700 dark:text-brand-400' : 'text-slate-400'}`} />
-                    <span className="truncate">{s.title || 'Percakapan'}</span>
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteSession(s.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                    title="Hapus Sesi"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+        <div className="w-80 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col shadow-xs">
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-700 to-emerald-600 flex items-center justify-center text-white shadow-sm shadow-brand-700/20">
+                  <Bot className="w-4 h-4" />
                 </div>
-              );
-            })
-          )}
-        </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Alesha AI Chat</h2>
+                  <p className="text-[11px] text-slate-500">Smart Academic & SIS Assistant</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Live
+              </span>
+            </div>
 
-        {/* User Context Footer */}
-        <div className="p-3.5 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-600">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Shield className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
-            <span className="font-semibold text-slate-800 truncate">{effectiveUserName}</span>
+            <button
+              onClick={handleCreateNewSession}
+              className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white rounded-xl text-xs font-semibold shadow-sm shadow-blue-600/30 transition-all active:scale-[0.99] cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Sesi Percakapan Baru</span>
+            </button>
+
+            <button
+              onClick={handleClearAllHistory}
+              className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-[11px] font-medium text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-dashed border-slate-200 hover:border-rose-200 transition cursor-pointer"
+              title="Bersihkan seluruh riwayat chat"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Bersihkan Semua Riwayat</span>
+            </button>
           </div>
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="px-2 py-0.5 rounded bg-blue-100/80 text-brand-800 dark:text-brand-300 font-medium">
-              {effectiveRole}
-            </span>
-            <span className="flex items-center gap-1 text-slate-500 truncate max-w-[130px]">
-              <MapPin className="w-2.5 h-2.5 text-emerald-600" />
-              <span className="truncate font-medium">{effectiveUnit}</span>
-            </span>
+
+          {/* Sessions List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar bg-slate-50/30">
+            {sessions.length === 0 ? (
+              <div className="text-center py-10 px-4 text-xs text-slate-400">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                <p className="font-medium text-slate-600">Belum ada riwayat percakapan</p>
+                <p className="text-[11px] mt-1 text-slate-400">Mulai sesi baru untuk konsultasi data akademik, presensi, tugas & nilai.</p>
+              </div>
+            ) : (
+              sessions.map((s) => {
+                const isActive = s.id === activeSessionId;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSelectSession(s.id)}
+                    className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition cursor-pointer ${isActive
+                      ? 'bg-brand-50 dark:bg-brand-900/30/90 text-brand-800 dark:text-brand-300 border border-brand-200 dark:border-brand-800/40 font-semibold shadow-2xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <MessageSquare className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-brand-700 dark:text-brand-400' : 'text-slate-400'}`} />
+                      <span className="truncate">{s.title || 'Percakapan'}</span>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteSession(s.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                      title="Hapus Sesi"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* User Context Footer */}
+          <div className="p-3.5 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-600">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Shield className="w-3.5 h-3.5 text-brand-700 dark:text-brand-400" />
+              <span className="font-semibold text-slate-800 truncate">{effectiveUserName}</span>
+            </div>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="px-2 py-0.5 rounded bg-blue-100/80 text-brand-800 dark:text-brand-300 font-medium">
+                {effectiveRole}
+              </span>
+              <span className="flex items-center gap-1 text-slate-500 truncate max-w-[130px]">
+                <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                <span className="truncate font-medium">{effectiveUnit}</span>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-slate-100/60 min-w-0">
         {/* Top Header matching SM-Sinau */}
-        <div className={`px-6 py-3.5 flex items-center justify-between shadow-2xs shrink-0 ${
-          isUserUmum
+        <div className={`px-6 py-3.5 flex items-center justify-between shadow-2xs shrink-0 ${isUserUmum
             ? 'bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 text-white border-b border-brand-600/30'
             : 'bg-white/90 backdrop-blur-md border-b border-slate-200 text-slate-900'
-        }`}>
+          }`}>
           <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${
-              isUserUmum ? 'bg-white/20 text-white' : 'bg-gradient-to-tr from-blue-600 via-brand-700 to-cyan-500 text-white shadow-brand-700/20'
-            }`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${isUserUmum ? 'bg-white/20 text-white' : 'bg-gradient-to-tr from-blue-600 via-brand-700 to-cyan-500 text-white shadow-brand-700/20'
+              }`}>
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <h1 className={`text-sm font-bold flex items-center gap-2 ${isUserUmum ? 'text-white' : 'text-slate-900'}`}>
                 {isUserUmum ? (isPortal ? 'Alesha AI — Pemandu Portal Materi' : 'Alesha AI — Panduan Fitur SINAU') : 'Alesha Intelligent Chat Mode'}
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  isUserUmum ? 'bg-white/20 text-white border border-white/30' : 'bg-brand-50 text-brand-800 border border-brand-200'
-                }`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isUserUmum ? 'bg-white/20 text-white border border-white/30' : 'bg-brand-50 text-brand-800 border border-brand-200'
+                  }`}>
                   {isUserUmum ? 'Pengunjung Umum' : 'SM-SINAU V2'}
                 </span>
               </h1>
               <p className={`text-[11px] ${isUserUmum ? 'text-white/80' : 'text-slate-500'}`}>
-                {isUserUmum 
+                {isUserUmum
                   ? (isPortal ? 'Eksplorasi bahan ajar terbuka dan materi pelajaran umum tanpa login' : 'Pemandu resmi pengenalan fitur platform, sistem ujian CBT & modul sekolah cerdas')
                   : `Asisten cerdas akademik, jadwal KBM, data siswa, presensi, tugas & ujian CBT, nilai, dan rekapitulasi SM-Sinau (${effectiveUnit})`}
               </p>
@@ -3276,9 +3825,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
               <button
                 onClick={onClose}
                 title="Tutup Chatbot"
-                className={`p-2 rounded-xl transition cursor-pointer ${
-                  isUserUmum ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                }`}
+                className={`p-2 rounded-xl transition cursor-pointer ${isUserUmum ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                  }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3336,11 +3884,10 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                       onClick={() => !inQuizOrExam && setActiveTutorMode(tm.id)}
                       disabled={inQuizOrExam}
                       title={tm.title}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition shrink-0 cursor-pointer shadow-2xs ${
-                        isCurActive
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition shrink-0 cursor-pointer shadow-2xs ${isCurActive
                           ? 'bg-brand-700 text-white font-semibold ring-2 ring-brand-300'
                           : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       <span>{tm.icon}</span>
                       <span>{tm.label}</span>
@@ -3413,10 +3960,10 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                 {isUserUmum ? (isPortal ? 'Selamat Datang di Portal Materi Publik!' : 'Selamat Datang di Platform SINAU!') : `Halo, ${effectiveUserName}!`}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto mb-6 leading-relaxed">
-                {isUserUmum 
-                  ? (isPortal 
-                      ? 'Saya Alesha, pemandu belajar Anda. Anda dapat mengeksplorasi bahan ajar terbuka dan materi umum yang dibagikan oleh berbagai lembaga pendidikan di sini tanpa perlu login.'
-                      : 'Saya Alesha, asisten virtual dan lapisan intelijen SINAU. Saya siap memperkenalkan seluruh fitur unggulan platform, mulai dari LMS, ujian online CBT, presensi GPS/Face, rapor Kurikulum Merdeka, hingga modul magang industri PKL.')
+                {isUserUmum
+                  ? (isPortal
+                    ? 'Saya Alesha, pemandu belajar Anda. Anda dapat mengeksplorasi bahan ajar terbuka dan materi umum yang dibagikan oleh berbagai lembaga pendidikan di sini tanpa perlu login.'
+                    : 'Saya Alesha, asisten virtual dan lapisan intelijen SINAU. Saya siap memperkenalkan seluruh fitur unggulan platform, mulai dari LMS, ujian online CBT, presensi GPS/Face, rapor Kurikulum Merdeka, hingga modul magang industri PKL.')
                   : 'Saya Alesha, asisten cerdas sistem SM-Sinau. Saya siap membantu menyajikan data akademik, rekapitulasi siswa, jadwal pelajaran, materi LMS, tugas & ujian CBT, nilai rapor, absensi, hingga rekapitulasi pembayaran SPP.'}
               </p>
 
@@ -3473,19 +4020,31 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                       const { cleanContent, actions } = extractActionButtons(m.content);
                       return (
                         <>
-                          <MarkdownViewer content={cleanContent} onExpandChart={setExpandedChart} />
+                          <MarkdownViewer content={cleanContent} onExpandChart={setExpandedChart} onAction={handleSendMessage} />
                           {actions.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                              {actions.map((act: ActionButton, actIdx: number) => (
-                                <button
-                                  key={actIdx}
-                                  onClick={() => handleSendMessage(act.prompt)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-800 border border-brand-200 text-[11px] font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
-                                >
-                                  <Sparkles className="w-3 h-3 text-brand-600" />
-                                  <span>{act.label}</span>
-                                </button>
-                              ))}
+                              {actions.map((act: ActionButton, actIdx: number) => {
+                                const isSavePlan = act.label.toLowerCase().includes('simpan ke modul') || act.prompt.startsWith('SIMPAN_MODUL');
+                                return (
+                                  <button
+                                    key={actIdx}
+                                    onClick={() => {
+                                      if (isSavePlan) {
+                                        handleOpenSavePlanModal(m.content, act.prompt);
+                                      } else {
+                                        handleSendMessage(act.prompt);
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 ${isSavePlan
+                                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 font-bold ring-1 ring-emerald-200'
+                                        : 'bg-brand-50 hover:bg-brand-100 text-brand-800 border-brand-200'
+                                      }`}
+                                  >
+                                    {isSavePlan ? <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Sparkles className="w-3 h-3 text-brand-600" />}
+                                    <span>{act.label}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </>
@@ -3795,6 +4354,16 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
           </div>,
           document.body
         )}
+
+      {/* Modal Simpan Modul Ajar Kurikulum Merdeka */}
+      <SaveLessonPlanModal
+        isOpen={savePlanModal.isOpen}
+        onClose={() => setSavePlanModal(prev => ({ ...prev, isOpen: false }))}
+        initialData={savePlanModal.data}
+        onSaved={(savedTitle) => {
+          handleSendMessage(`Draf modul ajar "${savedTitle}" telah berhasil disimpan ke Modul Materi Kelas SM-Sinau.`);
+        }}
+      />
     </div>
   );
 
