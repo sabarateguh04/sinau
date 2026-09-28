@@ -3853,7 +3853,7 @@ function normalizeMarkdown(raw: string): string {
   text = text.replace(/([^\n])\s*(\[[^\]]+\]\s*\((?:https?:\/\/[^\s)]+|\/static\/[^\s)]+|\.[a-z0-9]+[^\s)]*)\))/gi, '$1\n\n$2');
   text = text.replace(/(\[[^\]]+\]\s*\((?:https?:\/\/[^\s)]+|\/static\/[^\s)]+|\.[a-z0-9]+[^\s)]*)\))\s*([^\n])/gi, '$1\n\n$2');
 
-  // 5. Convert all localhost / 127.0.0.1 backend URLs directly to https://alesha-be.djalu.co.id
+  // 5. Convert all localhost / 127.0.0.1 backend URLs directly to http://localhost:8000
   text = text.replace(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/gi, getAleshaApiBase());
   text = text.replace(/https?:\/\/alesha\.djalu\.co\.id\/static\//gi, `${getAleshaApiBase()}/static/`);
 
@@ -3862,18 +3862,18 @@ function normalizeMarkdown(raw: string): string {
 
 /**
  * Resolves URLs from Alesha AI: converts localhost / 127.0.0.1 or relative /static/ paths
- * directly to backend domain https://alesha-be.djalu.co.id
+ * directly to backend domain http://localhost:8000
  */
 function resolveAleshaLink(url: string): string {
   if (!url) return '';
   let resolved = url.trim();
 
-  // If starts with /static/, route directly to Alesha backend domain (https://alesha-be.djalu.co.id)
+  // If starts with /static/, route directly to Alesha backend domain (http://localhost:8000)
   if (resolved.startsWith('/static/')) {
     return `${getAleshaApiBase()}${resolved}`;
   }
 
-  // Convert any localhost or 127.0.0.1 URL directly to https://alesha-be.djalu.co.id
+  // Convert any localhost or 127.0.0.1 URL directly to http://localhost:8000
   resolved = resolved.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i, getAleshaApiBase());
 
   // Fix any static paths pointing to alesha.djalu.co.id/static/ to alesha-be.djalu.co.id/static/
