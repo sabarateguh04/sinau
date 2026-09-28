@@ -1,7 +1,22 @@
-﻿/**
- * Alesha Device Fingerprint Generator
- * Identifies physical devices deterministically across network/ISP changes,
- * incognito sessions, and browser reloads using hardware & canvas signatures.
+/**
+ * Alesha Cross-Browser Hardware Device Fingerprint Generator
+ * 
+ * Generates a deterministic hardware signature that is 100% IDENTICAL across:
+ * - Google Chrome
+ * - Microsoft Edge
+ * - Brave / Opera / Chromium browsers
+ * - Incognito / InPrivate windows
+ * - Browser cache & cookie resets
+ * 
+ * Uses ONLY hardware-level invariants:
+ * 1. Normalized Physical GPU Chipset Name (stripped of browser ANGLE wrappers/driver builds)
+ * 2. WebGL Hardware Capability Registers (integer limits on GPU silicon)
+ * 3. Physical Screen Resolution & Color Depth
+ * 4. Hardware CPU Thread Concurrency
+ * 5. Timezone & OS Platform
+ * 
+ * Strictly avoids browser-specific rasterization quirks (e.g. Edge DirectWrite vs Chrome Skia text anti-aliasing)
+ * so that switching browsers on the same machine CANNOT bypass visitor quotas.
  */
 
 let cachedDeviceId: string | null = null;
@@ -30,6 +45,31 @@ async function hashString(str: string): Promise<string> {
   return (Math.abs(h1).toString(16) + Math.abs(h2).toString(16)).slice(0, 24);
 }
 
+function normalizeGpu(rawRenderer: string, rawVendor: string): string {
+  let s = `${rawVendor} ${rawRenderer}`;
+  // Strip ANGLE wrappers
+  s = s.replace(/^ANGLE\s*\(/i, '').replace(/Google Inc\.\s*\(/i, '');
+  // Strip Direct3D / OpenGL / Vulkan / shader version strings
+  s = s.replace(/\b(Direct3D\d*|OpenGL|Vulkan|Metal|vs_\d+_\d+|ps_\d+_\d+|D3D\d+)[^,)]*/gi, '');
+  // Strip PCI / device ID parentheticals like (0x00002504)
+  s = s.replace(/\(0x[0-9a-fA-F]+\)/gi, '');
+  s = s.replace(/\(.*?\)/g, '');
+  // Strip driver build numbers e.g. 31.0.15.5222
+  s = s.replace(/\b\d+\.\d+\.\d+\.\d+\b/g, '');
+  s = s.replace(/[,()]/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+
+  // Deduplicate consecutive repeated words (e.g. 'NVIDIA NVIDIA GeForce' -> 'NVIDIA GeForce')
+  const words = s.split(' ');
+  const dedup: string[] = [];
+  for (const w of words) {
+    if (!dedup.length || dedup[dedup.length - 1].toLowerCase() !== w.toLowerCase()) {
+      dedup.push(w);
+    }
+  }
+  return dedup.join(' ').toLowerCase();
+}
+
 export async function getDeviceId(): Promise<string> {
   if (cachedDeviceId) {
     return cachedDeviceId;
@@ -39,78 +79,62 @@ export async function getDeviceId(): Promise<string> {
     return 'dev_node_server';
   }
 
-  // 1. Try reading from localStorage
-  try {
-    const saved = localStorage.getItem('alesha_device_id');
-    if (saved && saved.startsWith('dev_') && saved.length >= 12) {
-      cachedDeviceId = saved;
-      return saved;
-    }
-  } catch (_) {}
-
-  // 2. Try reading from cookie
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)alesha_device_id=([^;]+)/);
-    if (match && match[1] && match[1].startsWith('dev_')) {
-      cachedDeviceId = decodeURIComponent(match[1]);
-      try {
-        localStorage.setItem('alesha_device_id', cachedDeviceId);
-      } catch (_) {}
-      return cachedDeviceId;
-    }
-  } catch (_) {}
-
-  // 3. Extract Hardware & Canvas Fingerprints
-  let gpuInfo = '';
+  // Extract WebGL Hardware Profile
+  let gpuClean = 'generic_gpu';
+  let webglLimits = '0,0,0,0,0,0';
   try {
     const canvas = document.createElement('canvas');
     const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
     if (gl) {
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      if (dbg) {
-        const vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '';
-        const renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '';
-        gpuInfo = `${vendor}~${renderer}`;
-      }
+      const vendor = dbg ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : '';
+      const renderer = dbg ? (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+      gpuClean = normalizeGpu(renderer, vendor);
+
+      // Read physical hardware registers
+      const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
+      const maxCube = gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE) || 0;
+      const maxRender = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 0;
+      const maxVary = gl.getParameter(gl.MAX_VARYING_VECTORS) || 0;
+      const maxFrag = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0;
+      const maxVert = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) || 0;
+      webglLimits = `${maxTex},${maxCube},${maxRender},${maxVary},${maxFrag},${maxVert}`;
     }
   } catch (_) {}
 
-  let canvasSig = '';
-  try {
-    const c = document.createElement('canvas');
-    c.width = 220;
-    c.height = 36;
-    const ctx = c.getContext('2d');
-    if (ctx) {
-      ctx.textBaseline = 'top';
-      ctx.font = "14px 'Arial', sans-serif";
-      ctx.fillStyle = '#f60';
-      ctx.fillRect(120, 1, 60, 20);
-      ctx.fillStyle = '#069';
-      ctx.fillText('SinauAleshaAI,2026', 2, 12);
-      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-      ctx.fillText('SinauAleshaAI,2026', 4, 14);
-      canvasSig = c.toDataURL();
-    }
-  } catch (_) {}
-
+  // CPU physical threads
   const cores = navigator.hardwareConcurrency || 4;
-  const memory = (navigator as any).deviceMemory || 8;
-  const scr = `${window.screen?.width || 0}x${window.screen?.height || 0}x${window.screen?.colorDepth || 24}x${window.devicePixelRatio || 1}`;
-  const tz = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone || 'Asia/Jakarta';
-  const platform = navigator.platform || '';
 
-  const rawFeatures = `${gpuInfo}|${canvasSig.slice(-80)}|${cores}|${memory}|${scr}|${tz}|${platform}`;
-  const hash = await hashString(rawFeatures);
+  // Screen physical dimensions (monitor hardware specs)
+  const scr = `${window.screen?.width || 0}x${window.screen?.height || 0}x${window.screen?.colorDepth || 24}`;
+
+  // Timezone (OS level setting)
+  let tz = 'Asia/Jakarta';
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+  } catch (_) {}
+
+  // OS Platform family (clean to Windows / Mac / Linux / Android / iOS)
+  let osFamily = 'win';
+  const navPlat = (navigator.platform || '').toLowerCase();
+  const ua = (navigator.userAgent || '').toLowerCase();
+  if (navPlat.includes('win') || ua.includes('windows')) osFamily = 'win';
+  else if (navPlat.includes('mac') || ua.includes('macintosh')) osFamily = 'mac';
+  else if (ua.includes('android')) osFamily = 'android';
+  else if (navPlat.includes('iphone') || navPlat.includes('ipad') || ua.includes('iphone')) osFamily = 'ios';
+  else if (navPlat.includes('linux') || ua.includes('linux')) osFamily = 'linux';
+
+  // Construct raw hardware features string - STRICTLY BROWSER-AGNOSTIC
+  const rawHardware = `hw|${gpuClean}|${webglLimits}|${cores}|${scr}|${tz}|${osFamily}`;
+  const hash = await hashString(rawHardware);
   const deviceId = `dev_${hash}`;
 
   cachedDeviceId = deviceId;
 
-  // Persist to localStorage and cookie (1 year expiry)
+  // Store in localStorage & Cookie as fast cache
   try {
     localStorage.setItem('alesha_device_id', deviceId);
   } catch (_) {}
-
   try {
     document.cookie = `alesha_device_id=${encodeURIComponent(deviceId)}; path=/; max-age=31536000; SameSite=Lax`;
   } catch (_) {}
