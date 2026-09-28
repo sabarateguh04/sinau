@@ -579,11 +579,16 @@ export function AleshaWidget() {
 
   useEffect(() => saveMessages(messages), [messages]);
 
-  // Sync device quota from backend (tied to device IP across all browsers / tabs / incognito)
+  // Sync device quota from backend (tied to unique hardware device fingerprint)
   const syncDeviceQuota = useCallback(async () => {
     try {
       const aleshaApiBase = getAleshaApiBase();
-      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat`);
+      const devId = await getDeviceId();
+      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat&device_id=${encodeURIComponent(devId)}`, {
+        headers: {
+          'X-Device-Id': devId,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (typeof data.prompt_count === 'number') {
@@ -685,9 +690,11 @@ export function AleshaWidget() {
       const aleshaApiBase = getAleshaApiBase();
 
       try {
+        const devId = await getDeviceId();
         const payload = {
           message: content,
           mode: 'chat',
+          device_id: devId,
           user_role: activeRole || user?.roles?.[0] || 'user_umum',
           target_role: 'user_umum',
           current_page: loc.pathname,
@@ -697,7 +704,10 @@ export function AleshaWidget() {
 
         const res = await fetch(`${aleshaApiBase}/api/chat/sinau`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Device-Id': devId,
+          },
           body: JSON.stringify(payload),
         });
 
