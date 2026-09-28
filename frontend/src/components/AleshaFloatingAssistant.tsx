@@ -1,3 +1,4 @@
+import { getAleshaKioskUrl } from '@/lib/alesha';
 import React, { useState, useEffect } from 'react';
 import { Bot, MessageSquare, Mic, Sparkles, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/store/auth';
@@ -48,7 +49,7 @@ export function AleshaFloatingAssistant() {
       <AleshaKioskModal
         isOpen={isKioskOpen}
         onClose={() => setIsKioskOpen(false)}
-        kioskUrl={(import.meta as any).env?.VITE_ALESHA_KIOSK_URL || "http://localhost:3000/kiosk-public"}
+        kioskUrl={getAleshaKioskUrl()}
         activeMenu="Sinau E-Learning & SIS"
         currentUser={user}
         activeChatSessionId={typeof window !== 'undefined' ? (localStorage.getItem(`sm_sinau_ai_active_session_id_${user?.id ? `usr_${user.id}` : (user?.username ? `usr_${user.username}` : 'guest')}`) || localStorage.getItem('sm_sinau_ai_session_id')) : undefined}

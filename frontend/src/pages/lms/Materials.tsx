@@ -27,25 +27,51 @@ export default function Materials() {
   const params = useMemo(() => ({ q: dq || undefined, page, limit: 18, mine: tab === 'mine' ? 1 : undefined, published: tab === 'draft' ? 0 : undefined, class_subject_id: cs || undefined, type: type || undefined }), [dq, page, tab, cs, type]);
   const { rows, meta, loading, reload } = useResource<Dict>('/materials', params);
   useEffect(() => setPage(1), [dq, tab, cs, type]);
+
+  useEffect(() => {
+    const handleUpdate = () => reload();
+    window.addEventListener('sinau_materials_updated', handleUpdate);
+    return () => window.removeEventListener('sinau_materials_updated', handleUpdate);
+  }, [reload]);
   const teaching = user?.teaching ?? [];
   const classes = user?.classes ?? [];
+  const [allClassSubjects, setAllClassSubjects] = useState<{ class_subject_id: string; class_name: string; subject_name: string }[]>([]);
+
+  useEffect(() => {
+    if (teaching.length === 0) {
+      get<any>('/academic/class-subjects')
+        .then((res) => {
+          const list = res?.data || res || [];
+          if (Array.isArray(list)) {
+            setAllClassSubjects(list.map((cs: any) => ({
+              class_subject_id: cs.id,
+              class_name: cs.class_name,
+              subject_name: cs.subject_name,
+            })));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [teaching]);
+
+  const effectiveTeaching = teaching.length > 0 ? teaching : allClassSubjects;
   return (
     <div>
       <PageHeader title="Materi" subtitle={canWrite ? 'Bahan ajar untuk kelas yang Anda ampu.' : 'Bahan ajar dari guru kelas Anda.'} actions={canWrite && <Button icon={<Plus className="h-4 w-4" />} onClick={() => setOpen('new')}>Buat materi</Button>} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchInput value={q} onChange={setQ} className="w-full sm:w-64" placeholder="Cari judul…" />
         {canWrite && <Tabs value={tab} onChange={setTab} tabs={[{ value: 'all', label: 'Semua' }, { value: 'mine', label: 'Milik saya' }, { value: 'draft', label: 'Draf' }]} />}
-        {teaching.length > 0 && <Select value={cs} onChange={(e) => setCs(e.target.value)} className="w-56" placeholder="Semua kelas/mapel" options={teaching.map((t) => ({ value: t.class_subject_id, label: `${t.class_name} · ${t.subject_name}` }))} />}
+        {effectiveTeaching.length > 0 && <Select value={cs} onChange={(e) => setCs(e.target.value)} className="w-56" placeholder="Semua kelas/mapel" options={effectiveTeaching.map((t) => ({ value: t.class_subject_id, label: `${t.class_name} · ${t.subject_name}` }))} />}
         <Select value={type} onChange={(e) => setType(e.target.value)} className="w-36" placeholder="Semua tipe" options={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
       </div>
       {!loading && rows.length === 0 ? <EmptyState title="Belum ada materi" description={canWrite ? 'Mulai dengan mengunggah berkas, menempel tautan video, atau menulis materi.' : 'Guru belum menerbitkan materi untuk kelas Anda.'} action={canWrite && <Button onClick={() => setOpen('new')}>Buat materi</Button>} /> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((m) => { const I = ICON[m.type as string] ?? BookOpen; return (
             <Link key={m.id as string} to={`/${p}/materi/${m.id}`} className={cx('card group flex flex-col p-4 transition hover:border-brand-400', !m.is_published && 'border-dashed')}>
-              <div className="flex items-center justify-between"><span className="flex items-center gap-2 text-xs text-ink-3"><I className="h-4 w-4 text-brand-700" />{TYPE_LABEL[m.type as string]}</span><span className="flex gap-1">{!m.is_published && <Badge tone="gray">Draf</Badge>}{m.is_public ? <Badge tone="blue"><Globe className="h-3 w-3" /></Badge> : null}</span></div>
+              <div className="flex items-center justify-between"><span className="flex items-center gap-2 text-xs text-ink-3"><I className="h-4 w-4 text-brand-700" />{TYPE_LABEL[m.type as string]}</span><span className="flex items-center gap-1">{(m.class_name || m.grade_level) ? <Badge tone="brand">{String(m.class_name || `Kelas ${m.grade_level}`)}</Badge> : null}{!m.is_published && <Badge tone="gray">Draf</Badge>}{m.is_public ? <Badge tone="blue"><Globe className="h-3 w-3" /></Badge> : null}</span></div>
               <div className="mt-2 line-clamp-2 font-semibold group-hover:text-brand-700">{m.title as string}</div>
               <div className="mt-1 line-clamp-2 text-sm text-ink-2">{(m.description as string) || ' '}</div>
-              <div className="mt-auto pt-3 text-[11px] text-ink-3">{(m.class_name as string) ? `${m.class_name} · ` : ''}{m.subject_name as string}{m.author_name ? ` · ${m.author_name}` : ''} · {fmtAgo(m.published_at as string || m.created_at as string)}</div>
+              <div className="mt-auto pt-3 text-[11px] text-ink-3">{(m.class_name as string) ? `${m.class_name} · ` : (m.grade_level ? `Kelas ${m.grade_level} · ` : '')}{m.subject_name as string}{m.author_name ? ` · ${m.author_name}` : ''} · {fmtAgo(m.published_at as string || m.created_at as string)}</div>
               {typeof m.my_progress === 'number' ? <Progress value={m.my_progress as number} className="mt-2" tone={Number(m.my_progress) >= 100 ? 'green' : 'brand'} /> : canWrite ? <div className="mt-2 flex items-center gap-1 text-[11px] text-ink-3"><Eye className="h-3 w-3" /> {m.reader_count as number} pembaca · {m.view_count as number} dilihat</div> : null}
             </Link>
           ); })}

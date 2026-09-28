@@ -69,3 +69,46 @@ export function speak(text: string, onEnd?: () => void): () => void {
   synth.speak(u);
   return () => synth.cancel();
 }
+
+
+/**
+ * Resolves the Alesha Backend API Base URL.
+ * Automatically adapts:
+ * 1. Explicit VITE_ALESHA_API_URL environment variable if set.
+ * 2. If running in browser and hostname is not localhost/127.0.0.1 (e.g. 172.20.4.220),
+ *    uses //:8000.
+ * 3. Default fallback: https://alesha-be.djalu.co.id
+ */
+export function getAleshaApiBase(): string {
+  const envUrl = (import.meta as any).env?.VITE_ALESHA_API_URL;
+  if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      const proto = window.location.protocol || 'http:';
+      return `${proto}//${host}:8000`;
+    }
+  }
+  return 'https://alesha-be.djalu.co.id';
+}
+
+/**
+ * Resolves the Alesha 3D Avatar Kiosk URL.
+ * Automatically adapts:
+ * 1. Explicit VITE_ALESHA_KIOSK_URL environment variable if set.
+ * 2. If running in browser and hostname is not localhost/127.0.0.1 (e.g. 172.20.4.220),
+ *    uses //:3000/kiosk-public.
+ * 3. Default fallback: https://alesha.djalu.co.id/kiosk-public
+ */
+export function getAleshaKioskUrl(): string {
+  const envUrl = (import.meta as any).env?.VITE_ALESHA_KIOSK_URL;
+  if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      const proto = window.location.protocol || 'http:';
+      return `${proto}//${host}:3000/kiosk-public`;
+    }
+  }
+  return 'https://alesha.djalu.co.id/kiosk-public';
+}

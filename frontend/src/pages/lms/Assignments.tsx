@@ -27,6 +27,12 @@ export default function Assignments() {
   const [childRows, setChildRows] = useState<Dict[] | null>(null);
   useEffect(() => { if (studentParam) get<Dict[]>(`/assignments/student/${studentParam}`).then(setChildRows); }, [studentParam]);
   useEffect(() => setPage(1), [dq, status, cs]);
+
+  useEffect(() => {
+    const handleUpdate = () => reload();
+    window.addEventListener('sinau_assignments_updated', handleUpdate);
+    return () => window.removeEventListener('sinau_assignments_updated', handleUpdate);
+  }, [reload]);
   if (studentParam && childRows) return <div><PageHeader title="Tugas anak" /><Card padded={false}><Table<Dict> columns={[{ key: 'title', header: 'Tugas' }, { key: 'subject_name', header: 'Mapel' }, { key: 'due_at', header: 'Tenggat', render: (r) => fmtDateTime(r.due_at as string) }, { key: 'submission_status', header: 'Status', render: (r) => <Badge tone={tone((r.submission_status as string) ?? 'NONE')}>{label((r.submission_status as string) ?? 'NONE')}</Badge> }, { key: 'score', header: 'Nilai', render: (r) => fmtScore(r.score as number) }]} rows={childRows} /></Card></div>;
   return (
     <div>

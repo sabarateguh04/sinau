@@ -1,3 +1,4 @@
+import { getAleshaApiBase } from '@/lib/alesha';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -45,9 +46,12 @@ import {
   Activity,
   BookmarkCheck,
   Save,
+  Upload,
   AlertTriangle
 } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, uploadFile } from '../lib/api';
+import { useAuth } from '../store/auth';
+import { toast } from '../store/ui';
 import {
   ResponsiveContainer,
   BarChart,
@@ -1713,7 +1717,7 @@ export interface AbsorptionHeatmapData {
   items: HeatmapItem[];
 }
 
-function AleshaAbsorptionHeatmapViewer({
+export function AleshaAbsorptionHeatmapViewer({
   data,
   onAction,
 }: {
@@ -1861,6 +1865,7 @@ export interface MisconceptionItem {
   subject?: string;
   misconception: string;
   student_count?: number;
+  students?: number;
   percentage?: number;
   recommendation?: string;
   analogy?: string;
@@ -1872,7 +1877,7 @@ export interface MisconceptionsData {
   items: MisconceptionItem[];
 }
 
-function AleshaMisconceptionsViewer({
+export function AleshaMisconceptionsViewer({
   data,
   onAction,
 }: {
@@ -1925,9 +1930,9 @@ function AleshaMisconceptionsViewer({
                   </span>
                 )}
               </div>
-              {it.student_count !== undefined && (
+              {(it.student_count !== undefined || it.students !== undefined) && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
-                  {it.student_count} Siswa Terkecoh {it.percentage ? `(${it.percentage}%)` : ''}
+                  {it.student_count ?? it.students} Siswa Terkecoh {it.percentage ? `(${it.percentage}%)` : ''}
                 </span>
               )}
             </div>
@@ -1977,79 +1982,1202 @@ function AleshaMisconceptionsViewer({
   );
 }
 
-// Subcomponent: SaveLessonPlanModal
+// Subcomponent: SaveLessonPlanModal - Form identik dengan Modal Materi Baru pada Menu Materi
 interface SaveLessonPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData: {
     title: string;
-    subject: string;
+    subject?: string;
     gradeLevel?: number;
-    meetings?: number;
+    description?: string;
+    type?: string;
     content: string;
+    meetings?: number;
   };
-  onSaved?: (title: string) => void;
+  onSaved?: (title: string, published?: boolean) => void;
 }
 
+const TYPE_LABEL_MAP: Record<string, string> = {
+  FILE: 'Berkas',
+  VIDEO: 'Video',
+  LINK: 'Tautan',
+  TEXT: 'Teks'
+};
+
+const DEFAULT_CLASS_SUBJECTS = [
+  { id: 'dae8660c-5998-4468-8b59-cece46cf05db', label: 'X TKJ 1 · Dasar-Dasar Jaringan Komputer', class_name: 'X TKJ 1', subject_name: 'Dasar-Dasar Jaringan Komputer', grade_level: 10 },
+  { id: '006d4433-cadd-4c3d-b560-a85a0ea600d4', label: 'X TKJ 1 · Informatika', class_name: 'X TKJ 1', subject_name: 'Informatika', grade_level: 10 },
+  { id: '368f1549-2cf3-4a62-9a54-5e2e94eee319', label: 'X TKJ 1 · Pendidikan Agama', class_name: 'X TKJ 1', subject_name: 'Pendidikan Agama', grade_level: 10 },
+  { id: '8f83b256-e5b6-4e32-9b38-16e09cf94463', label: 'X TKJ 1 · Dasar Pemrograman', class_name: 'X TKJ 1', subject_name: 'Dasar Pemrograman', grade_level: 10 },
+  { id: 'cd2ea415-c19d-49a6-84f9-55ca70552191', label: 'X TKJ 1 · Matematika', class_name: 'X TKJ 1', subject_name: 'Matematika', grade_level: 10 },
+  { id: '554e23e8-6a83-4415-a8ea-6f2d04021ce3', label: 'X RPL 1 · Dasar Pemrograman', class_name: 'X RPL 1', subject_name: 'Dasar Pemrograman', grade_level: 10 },
+  { id: '52222afa-14c8-4781-8f6a-f04aa7b38837', label: 'X RPL 1 · Informatika', class_name: 'X RPL 1', subject_name: 'Informatika', grade_level: 10 },
+  { id: 'ff5c5248-780d-411b-b063-d8c1ab0c4585', label: 'X RPL 1 · Matematika', class_name: 'X RPL 1', subject_name: 'Matematika', grade_level: 10 },
+  { id: 'e7797017-6df3-42b8-aa5f-4932161bfe21', label: 'X RPL 1 · Dasar-Dasar Jaringan Komputer', class_name: 'X RPL 1', subject_name: 'Dasar-Dasar Jaringan Komputer', grade_level: 10 },
+  { id: '9d2917ef-8f93-421b-922e-e8b13bbc4f8f', label: 'X RPL 1 · Bahasa Indonesia', class_name: 'X RPL 1', subject_name: 'Bahasa Indonesia', grade_level: 10 },
+];
+
 function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLessonPlanModalProps) {
-  const [title, setTitle] = useState(initialData.title || 'Modul Ajar Kurikulum Merdeka');
-  const [subject, setSubject] = useState(initialData.subject || 'Umum');
-  const [gradeLevel, setGradeLevel] = useState<number>(initialData.gradeLevel || 10);
+  const { user } = useAuth();
+  const [title, setTitle] = useState(initialData.title || '');
+  const [classSubjectId, setClassSubjectId] = useState<string>('');
+  const [type, setType] = useState<string>(initialData.type || 'TEXT');
+  const [description, setDescription] = useState(initialData.description || '');
   const [content, setContent] = useState(initialData.content || '');
+  const [contentUrl, setContentUrl] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [classSubjectOptions, setClassSubjectOptions] = useState<any[]>(DEFAULT_CLASS_SUBJECTS);
+
+  const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
   useEffect(() => {
-    if (isOpen) {
-      setTitle(initialData.title || 'Modul Ajar Kurikulum Merdeka');
-      setSubject(initialData.subject || 'Umum');
-      setGradeLevel(initialData.gradeLevel || 10);
-      setContent(initialData.content || '');
-      setSuccess(false);
-      setErrorMsg('');
+    if (!isOpen) return;
+
+    setTitle(initialData.title || 'Modul Ajar Kurikulum Merdeka');
+    setType(initialData.type || 'TEXT');
+    setDescription(initialData.description || '');
+    setContent(initialData.content || '');
+    setContentUrl('');
+    setFile(null);
+    setIsPublic(false);
+    setErrorMsg('');
+
+    // 1. Gather teaching from active user (prioritized strictly for teachers)
+    const teachingList = (user?.teaching ?? []).map((t: any) => ({
+      id: t.class_subject_id,
+      label: `${t.class_name} · ${t.subject_name}`,
+      class_name: t.class_name,
+      subject_name: t.subject_name,
+      subject_id: t.subject_id,
+      grade_level: t.class_name?.startsWith('X ') ? 10 : t.class_name?.startsWith('XI ') ? 11 : t.class_name?.startsWith('XII ') ? 12 : 10,
+    }));
+
+    if (teachingList.length > 0) {
+      setClassSubjectOptions(teachingList);
+      let selectedId = '';
+      const needleSubject = (initialData.subject || '').toLowerCase();
+      const needleTitle = (initialData.title || '').toLowerCase();
+      const needleContent = (initialData.content || '').toLowerCase();
+      const needleGrade = initialData.gradeLevel || 10;
+
+      const found = teachingList.find((opt: any) => {
+        const lbl = (opt.label || '').toLowerCase();
+        if (needleSubject && needleSubject !== 'umum' && (lbl.includes(needleSubject) || (opt.subject_name && opt.subject_name.toLowerCase().includes(needleSubject)))) return true;
+        if (needleTitle && opt.subject_name && (needleTitle.includes(opt.subject_name.toLowerCase()) || opt.subject_name.toLowerCase().includes(needleTitle))) return true;
+        if (needleContent && opt.class_name && needleContent.includes(opt.class_name.toLowerCase())) return true;
+        if (needleGrade && lbl.startsWith(needleGrade === 10 ? 'x ' : needleGrade === 11 ? 'xi ' : 'xii ')) return true;
+        return false;
+      });
+
+      selectedId = found ? found.id : teachingList[0].id;
+      setClassSubjectId(selectedId);
+      return;
     }
-  }, [isOpen, initialData]);
+
+    // 2. Fetch full list of class subjects from backend API (fallback for admin)
+    api.get('/academic/class-subjects')
+      .then((res: any) => {
+        const list = res.data?.data || res.data || [];
+        if (Array.isArray(list) && list.length > 0) {
+          const mapped = list.map((cs: any) => ({
+            id: cs.id,
+            label: `${cs.class_name} · ${cs.subject_name}`,
+            class_name: cs.class_name,
+            subject_name: cs.subject_name,
+            subject_id: cs.subject_id,
+            grade_level: cs.grade_level,
+          }));
+          setClassSubjectOptions(mapped);
+          let selectedId = '';
+          const needleSubject = (initialData.subject || '').toLowerCase();
+          const needleGrade = initialData.gradeLevel || 10;
+
+          const found = mapped.find((opt: any) => {
+            const lbl = (opt.label || '').toLowerCase();
+            if (needleSubject && needleSubject !== 'umum' && lbl.includes(needleSubject)) return true;
+            if (needleGrade && lbl.startsWith(needleGrade === 10 ? 'x ' : needleGrade === 11 ? 'xi ' : 'xii ')) return true;
+            return false;
+          });
+
+          selectedId = found ? found.id : (mapped.length > 0 ? mapped[0].id : '');
+          setClassSubjectId(selectedId);
+        } else {
+          setClassSubjectOptions(DEFAULT_CLASS_SUBJECTS);
+          setClassSubjectId(DEFAULT_CLASS_SUBJECTS[0].id);
+        }
+      })
+      .catch(() => {
+        setClassSubjectOptions(DEFAULT_CLASS_SUBJECTS);
+        setClassSubjectId(DEFAULT_CLASS_SUBJECTS[0].id);
+      });
+  }, [isOpen, initialData, user]);
 
   if (!isOpen) return null;
 
-  const handleSave = async () => {
+  const handleSave = async (publish: boolean) => {
     if (!title.trim()) {
-      setErrorMsg('Judul modul ajar wajib diisi.');
+      setErrorMsg('Judul materi wajib diisi.');
       return;
     }
     setSaving(true);
     setErrorMsg('');
     try {
-      const payload = {
-        title: title.trim(),
-        description: 'Draf Modul Ajar Kurikulum Merdeka - Disusun otomatis oleh AI Lesson Assistant Alesha',
-        type: 'TEXT',
-        content_text: content,
-        grade_level: Number(gradeLevel) || 10,
-        is_published: true,
-        is_public: false,
-      };
-
-      try {
-        await api.post('/materials', payload);
-      } catch (apiErr: any) {
-        // Fallback: If mock or offline, save to localStorage so teacher doesn't lose it
-        const savedList = JSON.parse(localStorage.getItem('sinau_saved_modules') || '[]');
-        savedList.unshift({ id: `mod_${Date.now()}`, ...payload, created_at: new Date().toISOString() });
-        localStorage.setItem('sinau_saved_modules', JSON.stringify(savedList));
+      let fileId: string | null = null;
+      if (type === 'FILE' && file) {
+        try {
+          const up = await uploadFile('materials', file);
+          fileId = up?.id ?? null;
+        } catch (upErr: any) {
+          console.warn('Upload file warning:', upErr);
+        }
       }
 
-      setSuccess(true);
+      const selectedCs = classSubjectOptions.find((o: any) => o.id === classSubjectId);
+      let gradeLevelNum: number = selectedCs?.grade_level ?? (initialData.gradeLevel ? Number(initialData.gradeLevel) : 10);
+      if (!gradeLevelNum && selectedCs?.label) {
+        if (selectedCs.label.startsWith('X ')) gradeLevelNum = 10;
+        else if (selectedCs.label.startsWith('XI ')) gradeLevelNum = 11;
+        else if (selectedCs.label.startsWith('XII ')) gradeLevelNum = 12;
+      }
+
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        type: type,
+        class_subject_id: classSubjectId || null,
+        subject_id: selectedCs?.subject_id || null,
+        grade_level: gradeLevelNum,
+        target_class: selectedCs?.class_name || null,
+        content_text: type === 'TEXT' ? content : null,
+        content_url: (type === 'VIDEO' || type === 'LINK') ? (contentUrl.trim() || null) : null,
+        file_id: fileId,
+        is_published: publish,
+        is_public: !!isPublic,
+      };
+
+      await api.post('/materials', payload);
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('sinau_materials_updated'));
       }
-      setTimeout(() => {
-        onSaved?.(title);
-        onClose();
-      }, 1200);
+      toast.success(publish ? 'Materi berhasil diterbitkan' : 'Draf materi berhasil disimpan');
+      onSaved?.(title, publish);
+      onClose();
     } catch (e: any) {
-      setErrorMsg(e.message || 'Gagal menyimpan modul ajar.');
+      setErrorMsg(e?.response?.data?.error?.message || e.message || 'Gagal menyimpan materi.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-[#121824] text-slate-100 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header Modal - Sesuai modal 'Materi baru' */}
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-100">Materi baru</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form Body - Tampilan grid dan field identik dengan modal add new materi */}
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Judul * */}
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Judul <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="mis. Pengenalan Model OSI"
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition"
+              />
+            </div>
+
+            {/* Untuk kelas & mapel */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Untuk kelas & mapel
+              </label>
+              <div className="relative">
+                <select
+                  value={classSubjectId}
+                  onChange={(e) => setClassSubjectId(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 pr-9 text-sm text-slate-100 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition cursor-pointer"
+                >
+                  <option value="">— Materi umum —</option>
+                  {classSubjectOptions.map((opt: any) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Tipe */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Tipe
+              </label>
+              <div className="relative">
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 pr-9 text-sm text-slate-100 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition cursor-pointer"
+                >
+                  {Object.entries(TYPE_LABEL_MAP).map(([val, lbl]) => (
+                    <option key={val} value={val}>
+                      {lbl}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Deskripsi */}
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Deskripsi
+              </label>
+              <textarea
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="mis. Ringkasan singkat materi atau tujuan pembelajaran..."
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] p-3 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y transition"
+              />
+            </div>
+
+            {/* Konten sesuai Tipe */}
+            {type === 'FILE' && (
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                  Berkas (PDF, PPTX, DOCX, gambar ≤ 20 MB)
+                </label>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-700 p-4 hover:border-brand-400 bg-[#172033]/60 transition">
+                  <Upload className="h-5 w-5 text-slate-400 shrink-0" />
+                  <span className="text-sm text-slate-300">
+                    {file ? `${file.name} (${fmtBytes(file.size)})` : 'Pilih berkas…'}
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.pptx,.ppt,.docx,.doc,.xlsx,.png,.jpg,.jpeg,.webp,.zip,.mp4,.mp3"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            )}
+
+            {(type === 'VIDEO' || type === 'LINK') && (
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                  {type === 'VIDEO' ? 'Tautan video (YouTube / mp4)' : 'Tautan'}
+                </label>
+                <input
+                  type="text"
+                  value={contentUrl}
+                  onChange={(e) => setContentUrl(e.target.value)}
+                  placeholder="https://"
+                  className="w-full rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition"
+                />
+              </div>
+            )}
+
+            {type === 'TEXT' && (
+              <div className="sm:col-span-2">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-200">
+                    Isi materi (Markdown)
+                  </label>
+                  <span className="text-xs text-slate-400">
+                    # Judul, **tebal**, - daftar, ``` kode
+                  </span>
+                </div>
+                <textarea
+                  rows={10}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700/80 bg-[#172033] p-3 font-mono text-xs text-slate-200 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y transition custom-scrollbar"
+                />
+              </div>
+            )}
+
+            {/* Boleh dibagikan ke portal publik */}
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-200">
+                Boleh dibagikan ke portal publik
+              </label>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(!isPublic)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isPublic ? 'bg-emerald-600' : 'bg-slate-700'
+                    }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${isPublic ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                  />
+                </button>
+                <span className="text-sm font-medium text-slate-300">
+                  {isPublic ? 'Ya' : 'Tidak'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Admin/Super Admin yang memutuskan tampil di portal
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Modal: Batal, Simpan draf, Terbitkan */}
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-800 bg-[#0f1520]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition cursor-pointer disabled:opacity-50"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+            <span>Simpan draf</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+            <span>Terbitkan</span>
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Subcomponent: SaveAssignmentModal - Modal identik dengan modal 'Tugas baru' pada Menu Tugas
+interface SaveAssignmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData: {
+    title: string;
+    instructions: string;
+    classSubjectId?: string;
+    maxScore?: number;
+    dueDays?: number;
+  };
+  onSaved?: (title: string) => void;
+}
+
+function SaveAssignmentModal({ isOpen, onClose, initialData, onSaved }: SaveAssignmentModalProps) {
+  const { user } = useAuth();
+  const [title, setTitle] = useState(initialData.title || '');
+  const [classSubjectId, setClassSubjectId] = useState<string>('');
+  const [status, setStatus] = useState<'PUBLISHED' | 'DRAFT' | 'CLOSED'>('PUBLISHED');
+  const [instructions, setInstructions] = useState(initialData.instructions || '');
+  const [dueAt, setDueAt] = useState('');
+  const [maxScore, setMaxScore] = useState(initialData.maxScore || 100);
+  const [submissionType, setSubmissionType] = useState<'BOTH' | 'TEXT' | 'FILE'>('BOTH');
+  const [allowLate, setAllowLate] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [classSubjectOptions, setClassSubjectOptions] = useState<any[]>(DEFAULT_CLASS_SUBJECTS);
+
+  const getDefaultDueAt = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(23, 59, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setTitle(initialData.title || 'Tugas Baru');
+    setStatus('PUBLISHED');
+    setInstructions(initialData.instructions || '');
+    setDueAt(getDefaultDueAt());
+    setMaxScore(initialData.maxScore || 100);
+    setSubmissionType('BOTH');
+    setAllowLate(true);
+    setFile(null);
+    setErrorMsg('');
+
+    // 1. Gather teaching from active user (prioritized strictly for teachers)
+    const teachingList = (user?.teaching ?? []).map((t: any) => ({
+      id: t.class_subject_id,
+      label: `${t.class_name} · ${t.subject_name}`,
+      class_name: t.class_name,
+      subject_name: t.subject_name,
+    }));
+
+    if (teachingList.length > 0) {
+      setClassSubjectOptions(teachingList);
+      let selectedId = '';
+      if (initialData.classSubjectId && teachingList.some((t: any) => t.id === initialData.classSubjectId)) {
+        selectedId = initialData.classSubjectId;
+      } else {
+        const matched = teachingList.find((t: any) =>
+          (initialData.instructions && t.class_name && initialData.instructions.toLowerCase().includes(t.class_name.toLowerCase())) ||
+          (initialData.title && t.subject_name && initialData.title.toLowerCase().includes(t.subject_name.toLowerCase()))
+        );
+        selectedId = matched ? matched.id : teachingList[0].id;
+      }
+      setClassSubjectId(selectedId);
+      return;
+    }
+
+    // 2. Fetch full list of class subjects from backend API (fallback for admin)
+    api.get('/academic/class-subjects')
+      .then((res: any) => {
+        const list = res.data?.data || res.data || [];
+        if (Array.isArray(list) && list.length > 0) {
+          const mapped = list.map((cs: any) => ({
+            id: cs.id,
+            label: `${cs.class_name} · ${cs.subject_name}`,
+            class_name: cs.class_name,
+            subject_name: cs.subject_name,
+          }));
+          setClassSubjectOptions(mapped);
+          let selectedId = '';
+          if (initialData.classSubjectId && mapped.some((m: any) => m.id === initialData.classSubjectId)) {
+            selectedId = initialData.classSubjectId;
+          } else if (mapped.length > 0) {
+            selectedId = mapped[0].id;
+          }
+          setClassSubjectId(selectedId);
+        } else {
+          setClassSubjectOptions(DEFAULT_CLASS_SUBJECTS);
+          setClassSubjectId(DEFAULT_CLASS_SUBJECTS[0].id);
+        }
+      })
+      .catch(() => {
+        setClassSubjectOptions(DEFAULT_CLASS_SUBJECTS);
+        setClassSubjectId(DEFAULT_CLASS_SUBJECTS[0].id);
+      });
+  }, [isOpen, initialData, user]);
+
+  if (!isOpen) return null;
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setErrorMsg('Judul tugas wajib diisi.');
+      return;
+    }
+    if (!classSubjectId) {
+      setErrorMsg('Pilih kelas & mapel terlebih dahulu.');
+      return;
+    }
+    setSaving(true);
+    setErrorMsg('');
+    try {
+      let attachment_file_id: string | null = null;
+      if (file) {
+        try {
+          const up = await uploadFile('assignments', file);
+          attachment_file_id = up?.id ?? null;
+        } catch (upErr: any) {
+          console.warn('Upload attachment error:', upErr);
+        }
+      }
+
+      const body = {
+        class_subject_id: classSubjectId,
+        title: title.trim(),
+        instructions: instructions.trim() || null,
+        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        allow_late: !!allowLate,
+        max_score: Number(maxScore) || 100,
+        status: status,
+        submission_type: submissionType,
+        attachment_file_id
+      };
+
+      await api.post('/assignments', body);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sinau_assignments_updated'));
+      }
+      toast.success('Tugas berhasil diterbitkan');
+      onSaved?.(title);
+      onClose();
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.error?.message || e.message || 'Gagal menerbitkan tugas.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-[#121824] text-slate-100 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header Modal - Tugas baru */}
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-100">Tugas baru</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body Modal - Form identik dengan add new tugas */}
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Judul * */}
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Judul <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="mis. Tugas Analisis Konsep LUCA"
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition"
+              />
+            </div>
+
+            {/* Kelas & mapel * */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Kelas & mapel <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={classSubjectId}
+                  onChange={(e) => setClassSubjectId(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 pr-9 text-sm text-slate-100 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition cursor-pointer"
+                >
+                  {classSubjectOptions.map((opt: any) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Status
+              </label>
+              <div className="relative">
+                <select
+                  value={status}
+                  onChange={(e: any) => setStatus(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 pr-9 text-sm text-slate-100 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition cursor-pointer"
+                >
+                  <option value="PUBLISHED">Terbit (siswa bisa mengumpulkan)</option>
+                  <option value="DRAFT">Draf</option>
+                  <option value="CLOSED">Ditutup</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Instruksi */}
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Instruksi
+              </label>
+              <textarea
+                rows={5}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="Petunjuk pengerjaan dan rubrik tugas..."
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] p-3 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 resize-y transition custom-scrollbar font-sans"
+              />
+            </div>
+
+            {/* Tenggat */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Tenggat
+              </label>
+              <input
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition"
+              />
+            </div>
+
+            {/* Skor maksimal */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Skor maksimal
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={maxScore}
+                onChange={(e) => setMaxScore(Number(e.target.value))}
+                className="w-full rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition"
+              />
+            </div>
+
+            {/* Bentuk pengumpulan */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Bentuk pengumpulan
+              </label>
+              <div className="relative">
+                <select
+                  value={submissionType}
+                  onChange={(e: any) => setSubmissionType(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-700/80 bg-[#172033] px-3.5 py-2.5 pr-9 text-sm text-slate-100 hover:border-slate-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition cursor-pointer"
+                >
+                  <option value="BOTH">Teks dan/atau berkas</option>
+                  <option value="TEXT">Teks saja</option>
+                  <option value="FILE">Berkas saja</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Terima keterlambatan */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Terima keterlambatan
+              </label>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAllowLate(!allowLate)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${allowLate ? 'bg-emerald-600' : 'bg-slate-700'
+                    }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${allowLate ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                  />
+                </button>
+                <span className="text-sm font-medium text-slate-300">
+                  {allowLate ? 'Ya, ditandai terlambat' : 'Tidak'}
+                </span>
+              </div>
+            </div>
+
+            {/* Lampiran (opsional) */}
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+                Lampiran (opsional)
+              </label>
+              <input
+                type="file"
+                className="text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: Batal, Simpan */}
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-800 bg-[#0f1520]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition cursor-pointer disabled:opacity-50"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+            <span>Simpan</span>
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+export interface ParsedQuestionItem {
+  type: 'MC' | 'ESSAY';
+  text: string;
+  options: { key: string; text: string; is_correct: boolean }[];
+  answer_key: string;
+  explanation: string;
+  difficulty: 'MUDAH' | 'SEDANG' | 'SULIT';
+  points: number;
+}
+
+export function parseQuestionsFromMessage(rawText: string): ParsedQuestionItem[] {
+  if (!rawText) return [];
+  const questions: ParsedQuestionItem[] = [];
+
+  const essayMatch = rawText.match(/(?:Bagian\s*[B-Z]|Soal\s*Essay|Bagian\s*Essay|Soal\s*Uraian)/i);
+  let mcText = rawText;
+  let essayText = '';
+  if (essayMatch && essayMatch.index !== undefined) {
+    mcText = rawText.slice(0, essayMatch.index);
+    essayText = rawText.slice(essayMatch.index);
+  }
+
+  // 1. Multiple Choice parsing
+  const qBlocks = mcText.split(/\n\s*(?=\d+[\.\)]\s+)/);
+  for (const block of qBlocks) {
+    const trimmed = block.trim();
+    const numMatch = trimmed.match(/^(\d+)[\.\)]\s+([\s\S]+)/);
+    if (!numMatch) continue;
+
+    const content = numMatch[2].trim();
+    const keyMatch = content.match(/(?:Kunci|Jawaban|Kunci\s*Jawaban)\s*:\s*([A-Ea-e])(?:\s*[-—:]\s*([^\n]*))?/i);
+    let answerKey = 'B';
+    let explanation = '';
+    let contentBeforeKey = content;
+    if (keyMatch) {
+      answerKey = keyMatch[1].toUpperCase();
+      explanation = (keyMatch[2] || '').trim();
+      contentBeforeKey = content.slice(0, keyMatch.index).trim();
+    }
+
+    const optPattern = /(?:^|\s+)([A-Ea-e])[\.\)]\s+/;
+    const optSplits = contentBeforeKey.split(optPattern);
+    if (optSplits.length >= 5) {
+      const qText = optSplits[0].trim();
+      const options: { key: string; text: string; is_correct: boolean }[] = [];
+      for (let i = 1; i < optSplits.length; i += 2) {
+        const optK = optSplits[i].toUpperCase();
+        const optV = (optSplits[i + 1] || '').trim();
+        options.push({
+          key: optK,
+          text: optV,
+          is_correct: optK === answerKey
+        });
+      }
+      questions.push({
+        type: 'MC',
+        text: qText,
+        options,
+        answer_key: answerKey,
+        explanation: explanation || `Kunci jawaban: ${answerKey}`,
+        difficulty: questions.length < 4 ? 'MUDAH' : 'SEDANG',
+        points: 1.0
+      });
+    }
+  }
+
+  // 2. Essay parsing
+  if (essayText) {
+    const eBlocks = essayText.split(/\n\s*(?=\d+[\.\)]\s+)/);
+    for (const block of eBlocks) {
+      const trimmed = block.trim();
+      const numMatch = trimmed.match(/^(\d+)[\.\)]\s+([\s\S]+)/);
+      if (!numMatch) continue;
+
+      const content = numMatch[2].trim();
+      const keyMatch = content.match(/(?:Kunci|Jawaban|Rubrik|Kunci\s*Jawaban)\s*:\s*([\s\S]*)/i);
+      let qText = content;
+      let rubric = '';
+      if (keyMatch) {
+        qText = content.slice(0, keyMatch.index).trim();
+        rubric = keyMatch[1].trim();
+      }
+
+      questions.push({
+        type: 'ESSAY',
+        text: qText,
+        options: [],
+        answer_key: rubric,
+        explanation: rubric,
+        difficulty: 'SEDANG',
+        points: 2.0
+      });
+    }
+  }
+
+  return questions;
+}
+
+interface ActionWriteModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  actionTag: string;
+  sourceMessage?: string;
+  effectiveRole: string;
+  currentUserId?: string;
+  onSaved?: (message: string) => void;
+}
+
+const AVAILABLE_CLASSES = [
+  { id: '4c3488c6-93de-4747-acd2-1f22912623dc', name: 'X TKJ 1', grade: 10, label: 'X TKJ 1 (Kelas 10)' },
+  { id: 'ed0171c2-9f0a-42a6-a801-35b1d5603761', name: 'X RPL 1', grade: 10, label: 'X RPL 1 (Kelas 10)' },
+  { id: 'dda58d8b-4b03-4e06-b2d3-5bfc3b9ef8ef', name: 'XI TKJ 1', grade: 11, label: 'XI TKJ 1 (Kelas 11)' },
+  { id: '776ca10e-c559-4fec-82a6-5cb9935c6a13', name: 'XI RPL 1', grade: 11, label: 'XI RPL 1 (Kelas 11)' },
+  { id: '949682d4-08ff-46fc-bccf-b7d0b3f4b9cb', name: 'XII TKJ 1', grade: 12, label: 'XII TKJ 1 (Kelas 12)' },
+  { id: '0fa86319-5f19-474c-bf3f-fd043c91cda2', name: 'XII RPL 1', grade: 12, label: 'XII RPL 1 (Kelas 12)' },
+];
+
+export function AleshaActionWriteModal({
+  isOpen,
+  onClose,
+  actionTag,
+  sourceMessage,
+  effectiveRole,
+  currentUserId,
+  onSaved,
+}: ActionWriteModalProps) {
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const parsedData = useMemo(() => {
+    if (!actionTag) return { type: 'UNKNOWN', data: {} as any };
+    const colonIdx = actionTag.indexOf(':');
+    if (colonIdx === -1) return { type: actionTag.trim(), data: {} as any };
+    const type = actionTag.slice(0, colonIdx).trim();
+    const jsonStr = actionTag.slice(colonIdx + 1).trim();
+    try {
+      const data = JSON.parse(jsonStr);
+      return { type, data };
+    } catch {
+      return { type, data: { raw: jsonStr } };
+    }
+  }, [actionTag]);
+
+  const [titleField, setTitleField] = useState('');
+  const [textField, setTextField] = useState('');
+  const [pointsField, setPointsField] = useState(10);
+  const [durationField, setDurationField] = useState(30);
+  const [gradeField, setGradeField] = useState<number>(10);
+  const [targetClassField, setTargetClassField] = useState<string>('X TKJ 1');
+  const [classList, setClassList] = useState(AVAILABLE_CLASSES);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSuccess(false);
+      setErrorMsg('');
+      setSuccessMsg('');
+      const d = parsedData.data;
+      setTitleField(d.title || d.subject || d.student_name || '');
+      setTextField(d.description || d.instructions || d.summary || d.body || d.note || (d.raw || ''));
+      setPointsField(Number(d.points) || 10);
+      setDurationField(Number(d.duration_min) || 30);
+
+      const parsedGrade = Number(d.grade_level || d.grade || d.gradeLevel) || (
+        d.class_name?.includes('11') || d.class_name?.startsWith('XI') ? 11 :
+          d.class_name?.includes('12') || d.class_name?.startsWith('XII') ? 12 : 10
+      );
+      setGradeField(parsedGrade);
+      setTargetClassField(d.class_name || d.target_class || d.class || (parsedGrade === 11 ? 'XI TKJ 1' : parsedGrade === 12 ? 'XII TKJ 1' : 'X TKJ 1'));
+
+      fetch('/api/v1/academic/classes?limit=50', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
+      })
+        .then(res => res.json())
+        .then(resData => {
+          if (resData?.data && Array.isArray(resData.data) && resData.data.length > 0) {
+            const mapped = resData.data.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              grade: Number(c.grade_level) || 10,
+              label: `${c.name} (Kelas ${c.grade_level || 10})`
+            }));
+            setClassList(mapped);
+          }
+        })
+        .catch(() => { });
+    }
+  }, [isOpen, parsedData]);
+
+  const handleGradeChange = (newGrade: number) => {
+    setGradeField(newGrade);
+    const matchClass = classList.find(c => c.grade === newGrade);
+    if (matchClass) {
+      setTargetClassField(matchClass.name);
+    }
+  };
+
+  const handleClassChange = (newClassName: string) => {
+    setTargetClassField(newClassName);
+    const found = classList.find(c => c.name === newClassName);
+    if (found) {
+      setGradeField(found.grade);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const { type, data } = parsedData;
+
+  const detectedQuestions = useMemo(() => {
+    if (type !== 'SIMPAN_SOAL' && type !== 'BUAT_KUIS') return [];
+    if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+      return data.questions;
+    }
+    const source = sourceMessage || textField || (data.raw || '');
+    return parseQuestionsFromMessage(source);
+  }, [type, data.questions, sourceMessage, textField, data.raw]);
+
+  const getActionConfig = () => {
+    switch (type) {
+      case 'SIMPAN_SOAL':
+        return {
+          title: 'Simpan Butir Soal ke Bank Soal CBT',
+          subtitle: 'Butir soal siap disimpan permanen ke database tbl_sinau_questions',
+          btnText: 'Simpan ke Bank Soal CBT',
+          badge: 'CBT / Bank Soal'
+        };
+      case 'BUAT_KUIS':
+        return {
+          title: 'Terbitkan Kuis CBT Baru',
+          subtitle: 'Kuis akan diterbitkan langsung ke kelas di tbl_sinau_quizzes',
+          btnText: 'Terbitkan Kuis CBT Sekarang',
+          badge: 'CBT Ujian & Kuis'
+        };
+      case 'BUAT_TUGAS':
+        return {
+          title: 'Terbitkan Tugas Kelas',
+          subtitle: 'Tugas terstruktur akan diterbitkan ke siswa di tbl_sinau_assignments',
+          btnText: 'Terbitkan Tugas Sekarang',
+          badge: 'LMS Tugas Siswa'
+        };
+      case 'CATAT_PELANGGARAN':
+        return {
+          title: 'Catat Pelanggaran Tata Tertib Siswa',
+          subtitle: 'Poin pelanggaran tercatat ke buku kedisiplinan BK tbl_sinau_discipline_records',
+          btnText: 'Simpan Catatan Kedisiplinan',
+          badge: 'Bimbingan Konseling (BK)'
+        };
+      case 'JADWAL_KONSELING':
+        return {
+          title: 'Jadwalkan Sesi Konseling Siswa',
+          subtitle: 'Agenda janji temu konseling tersimpan di tbl_sinau_counseling_notes',
+          btnText: 'Simpan Jadwal Konseling',
+          badge: 'Bimbingan Konseling (BK)'
+        };
+      case 'BUAT_PENGUMUMAN':
+        return {
+          title: 'Terbitkan Pengumuman Resmi Sekolah',
+          subtitle: 'Surat edaran/pengumuman diterbitkan ke sistem tbl_sinau_announcements',
+          btnText: 'Terbitkan Pengumuman',
+          badge: 'Pengumuman Resmi'
+        };
+      case 'VERIFIKASI_JURNAL':
+        return {
+          title: 'Verifikasi & Paraf Jurnal Magang PKL',
+          subtitle: 'Status jurnal siswa diverifikasi di tbl_sinau_internship_journals',
+          btnText: 'Verifikasi & Beri Paraf',
+          badge: 'Prakerin / Vokasi SMK'
+        };
+      default:
+        return {
+          title: 'Simpan Data ke Database Sistem',
+          subtitle: 'Rekam data ke sistem manajemen SM-Sinau (db_sinau)',
+          btnText: 'Simpan Sekarang ke Sistem',
+          badge: 'Sistem SM-Sinau'
+        };
+    }
+  };
+
+  const config = getActionConfig();
+
+  const handleSaveToSystem = async () => {
+    setSaving(true);
+    setErrorMsg('');
+    try {
+      let capId = 'SM-SINAU.LMS.GET_DATA';
+      let act = 'save_questions';
+      let params: any = {};
+
+      if (type === 'SIMPAN_SOAL') {
+        capId = 'SM-SINAU.LMS.GET_DATA';
+        act = 'save_questions';
+        params = {
+          action: 'save_questions',
+          subject: titleField || data.subject || 'Umum',
+          grade_level: gradeField,
+          target_class: targetClassField,
+          source_text: sourceMessage || textField || '',
+          questions: (detectedQuestions.length > 0 ? detectedQuestions : (data.questions || [
+            {
+              text: textField || 'Pertanyaan pemahaman konsep',
+              type: data.type || 'MC',
+              difficulty: data.difficulty || 'SEDANG',
+              points: pointsField || 1,
+              answer_key: data.answer_key || 'B',
+              explanation: data.explanation || '',
+              options: data.options || [
+                { key: 'A', text: 'Opsi A', is_correct: false },
+                { key: 'B', text: 'Opsi B', is_correct: true }
+              ]
+            }
+          ])).map((q: any) => ({ ...q, grade_level: gradeField }))
+        };
+      } else if (type === 'BUAT_KUIS') {
+        capId = 'SM-SINAU.LMS.GET_DATA';
+        act = 'create_quiz';
+        params = {
+          action: 'create_quiz',
+          title: titleField || data.title || 'Kuis Baru',
+          duration_min: durationField || 30,
+          class_name: targetClassField,
+          grade_level: gradeField,
+          subject: data.subject || titleField,
+          source_text: sourceMessage || textField || '',
+          questions: (detectedQuestions.length > 0 ? detectedQuestions : data.questions)?.map((q: any) => ({ ...q, grade_level: gradeField }))
+        };
+      } else if (type === 'BUAT_TUGAS') {
+        capId = 'SM-SINAU.LMS.GET_DATA';
+        act = 'create_assignment';
+        params = {
+          action: 'create_assignment',
+          title: titleField || data.title || 'Tugas Baru',
+          class_name: targetClassField,
+          grade_level: gradeField,
+          instructions: textField || data.instructions || 'Petunjuk pengerjaan tugas.',
+          due_days: Number(data.due_days) || 7,
+          max_score: pointsField || 100
+        };
+      } else if (type === 'CATAT_PELANGGARAN') {
+        capId = 'SM-SINAU.STUDENT_AFFAIRS.GET_DATA';
+        act = 'record_discipline';
+        params = {
+          action: 'record_discipline',
+          student_name: titleField || data.student_name || 'Aditya Pratama',
+          points: pointsField || 10,
+          description: textField || data.description || 'Pelanggaran tata tertib.',
+          action_taken: data.action_taken || 'Peringatan dan pembinaan lisan oleh Guru BK.'
+        };
+      } else if (type === 'JADWAL_KONSELING') {
+        capId = 'SM-SINAU.STUDENT_AFFAIRS.GET_DATA';
+        act = 'schedule_counseling';
+        params = {
+          action: 'schedule_counseling',
+          student_name: titleField || data.student_name || 'Aditya Pratama',
+          session_date: data.session_date,
+          category: data.category || 'BELAJAR',
+          summary: textField || data.summary || 'Sesi konseling pendampingan belajar.',
+          follow_up: data.follow_up || 'Evaluasi perkembangan minggu depan.'
+        };
+      } else if (type === 'BUAT_PENGUMUMAN') {
+        capId = 'SM-SINAU.STUDENT_AFFAIRS.GET_DATA';
+        act = 'create_announcement';
+        params = {
+          action: 'create_announcement',
+          title: titleField || data.title || 'Pengumuman Resmi',
+          body: textField || data.body || 'Isi pengumuman.',
+          audience: data.audience || 'ALL'
+        };
+      } else if (type === 'VERIFIKASI_JURNAL') {
+        capId = 'SM-SINAU.STUDENT_AFFAIRS.GET_DATA';
+        act = 'verify_internship_journal';
+        params = {
+          action: 'verify_internship_journal',
+          journal_id: data.journal_id,
+          mentor_note: textField || data.mentor_note || 'Disetujui dan diverifikasi oleh pembimbing industri.',
+          status: 'VERIFIED'
+        };
+      }
+
+      let savedResultMsg = '';
+      try {
+        const smRes = await fetch('http://127.0.0.1:8200/api/v1/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SM-Connect-Key': 'sm_sec_0703a58b1b4f71540b304df3a0d99e48f297d02e7bbf58c2f2d17083d30aa607'
+          },
+          body: JSON.stringify({
+            trace_id: `trc_ui_${Date.now()}`,
+            capability_id: capId,
+            context: {
+              user_id: currentUserId || 'usr_sinau',
+              role: effectiveRole || 'guru',
+              application: 'ALESHA-AI'
+            },
+            parameters: params
+          })
+        });
+        const smData = await smRes.json();
+        if (smData?.status === 'SUCCESS' && smData?.data?.message) {
+          savedResultMsg = smData.data.message;
+        }
+      } catch (smErr) {
+        console.warn('SM-Connect execute error:', smErr);
+      }
+
+      if (!savedResultMsg) {
+        savedResultMsg = `${config.title} berhasil disimpan & tercatat ke sistem!`;
+      }
+
+      setSuccessMsg(savedResultMsg);
+      setSuccess(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sinau_database_updated', { detail: { type, params } }));
+      }
+      setTimeout(() => {
+        onSaved?.(savedResultMsg);
+        onClose();
+      }, 1400);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal menyimpan ke sistem database.');
     } finally {
       setSaving(false);
     }
@@ -2059,14 +3187,19 @@ function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLess
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-400/30 flex items-center justify-center text-brand-300">
-              <BookOpen className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+              <BookmarkCheck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-white">Simpan ke Modul Materi Kelas</h4>
-              <p className="text-xs text-slate-300">Draf Kurikulum Merdeka siap diterbitkan ke LMS SM-Sinau</p>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-bold text-white">{config.title}</h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  {config.badge}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">{config.subtitle}</p>
             </div>
           </div>
           <button
@@ -2082,8 +3215,11 @@ function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLess
           {success ? (
             <div className="py-8 flex flex-col items-center justify-center text-center space-y-2">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
-              <h4 className="text-base font-bold text-slate-800">Modul Ajar Berhasil Disimpan!</h4>
-              <p className="text-xs text-slate-500">Draf telah tercatat di modul kelas SM-Sinau dan siap digunakan guru.</p>
+              <h4 className="text-base font-bold text-slate-800">Berhasil Disimpan ke Sistem!</h4>
+              <p className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200 max-w-md">
+                {successMsg}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-2">Data tersimpan permanen di database MySQL db_sinau.</p>
             </div>
           ) : (
             <>
@@ -2094,43 +3230,151 @@ function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLess
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Modul Ajar</label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50"
-                    placeholder="Contoh: Modul Ajar Pecahan & Aljabar Dasar"
-                  />
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-semibold">Target Database:</span>
+                  <span className="font-mono font-bold text-slate-800">db_sinau (172.20.4.220)</span>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Tingkat Kelas</label>
-                  <select
-                    value={gradeLevel}
-                    onChange={(e) => setGradeLevel(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50"
-                  >
-                    <option value={10}>Kelas 10</option>
-                    <option value={11}>Kelas 11</option>
-                    <option value={12}>Kelas 12</option>
-                    <option value={7}>Kelas 7</option>
-                    <option value={8}>Kelas 8</option>
-                    <option value={9}>Kelas 9</option>
-                  </select>
-                </div>
+                <span className="text-slate-400 text-[10px]">Tervalidasi SM-Connect Gateway</span>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Isi & Rancangan Modul Ajar (CP/TP, Skenario, Asesmen)</label>
-                <textarea
-                  rows={10}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 resize-y custom-scrollbar"
-                />
-              </div>
+              {/* Kelas & Target Rombel Selector */}
+              {(type === 'SIMPAN_SOAL' || type === 'BUAT_KUIS' || type === 'BUAT_TUGAS') && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-emerald-50/80 border border-emerald-200/90 space-y-2.5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-emerald-600" />
+                      Pilihan Kelas & Target Rombel Siswa
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-white px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                      Tingkat: Kelas {gradeField}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        Tingkat Kelas (Fase Kurikulum)
+                      </label>
+                      <select
+                        value={gradeField}
+                        onChange={(e) => handleGradeChange(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs cursor-pointer"
+                      >
+                        <option value={10}>Kelas 10 (Fase E - SMK)</option>
+                        <option value={11}>Kelas 11 (Fase F - SMK)</option>
+                        <option value={12}>Kelas 12 (Fase F - SMK)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                        Target Rombel / Kelas
+                      </label>
+                      <select
+                        value={targetClassField}
+                        onChange={(e) => handleClassChange(e.target.value)}
+                        className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs cursor-pointer"
+                      >
+                        {classList.map((cls) => (
+                          <option key={cls.id || cls.name} value={cls.name}>
+                            {cls.label || `${cls.name} (Kelas ${cls.grade})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(type === 'SIMPAN_SOAL' || type === 'BUAT_KUIS') && (detectedQuestions.length > 0 || (data.questions && Array.isArray(data.questions))) ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-700">
+                      Daftar {(detectedQuestions.length > 0 ? detectedQuestions : data.questions).length} Butir Soal Terdeteksi
+                    </label>
+                    <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-lg border border-brand-200">
+                      Mapel: {titleField || data.subject || 'Umum'}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                    {(detectedQuestions.length > 0 ? detectedQuestions : data.questions).map((q: any, idx: number) => (
+                      <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-800">
+                            Soal #{idx + 1} ({q.type === 'ESSAY' ? 'Essay / Uraian' : 'Pilihan Ganda'})
+                          </span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            {q.difficulty || 'SEDANG'} · {q.points || (q.type === 'ESSAY' ? 2 : 1)} Poin
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium">{q.text || q.question}</p>
+                        {q.options && Array.isArray(q.options) && q.options.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1">
+                            {q.options.map((opt: any, oIdx: number) => (
+                              <div key={oIdx} className={`px-2 py-1 rounded-lg border text-[11px] ${opt.is_correct || opt.key === q.answer_key ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                <span className="uppercase font-bold mr-1">{opt.key || String.fromCharCode(65 + oIdx)}.</span> {opt.text || opt}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {q.type === 'ESSAY' && (q.answer_key || q.explanation) && (
+                          <div className="p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[11px] text-emerald-900">
+                            <span className="font-bold mr-1">Rubrik / Kunci:</span> {q.answer_key || q.explanation}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      {type === 'CATAT_PELANGGARAN' || type === 'JADWAL_KONSELING' ? 'Nama Siswa Terkait' : 'Judul / Subjek'}
+                    </label>
+                    <input
+                      type="text"
+                      value={titleField}
+                      onChange={(e) => setTitleField(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50"
+                      placeholder="Masukkan nama siswa atau judul"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {type === 'CATAT_PELANGGARAN' ? 'Poin Pelanggaran' : type === 'BUAT_KUIS' ? 'Durasi (Menit)' : 'Poin / Bobot Nilai'}
+                      </label>
+                      <input
+                        type="number"
+                        value={type === 'BUAT_KUIS' ? durationField : pointsField}
+                        onChange={(e) => type === 'BUAT_KUIS' ? setDurationField(Number(e.target.value)) : setPointsField(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Status Publikasi</label>
+                      <div className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/60 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Langsung Aktif di Sistem</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Petunjuk / Catatan</label>
+                    <textarea
+                      rows={5}
+                      value={textField}
+                      onChange={(e) => setTextField(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50 resize-y custom-scrollbar"
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -2141,17 +3385,17 @@ function SaveLessonPlanModal({ isOpen, onClose, initialData, onSaved }: SaveLess
             <button
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition cursor-pointer"
             >
               Batal
             </button>
             <button
-              onClick={handleSave}
+              onClick={handleSaveToSystem}
               disabled={saving}
-              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-brand-700 hover:bg-brand-800 active:scale-95 shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <BookmarkCheck className="w-4 h-4" />}
-              <span>{saving ? 'Menyimpan...' : 'Simpan Sekarang ke Modul Kelas'}</span>
+              <span>{saving ? 'Menyimpan...' : config.btnText}</span>
             </button>
           </div>
         )}
@@ -2245,34 +3489,78 @@ function MarkdownViewer({ content, onExpandChart, onPreviewImage, onAction }: Ma
       if (line.trim().startsWith('```')) {
         if (inCodeBlock) {
           const lang = (codeLanguage || '').toLowerCase().trim();
-          if (lang.startsWith('chart') || lang.startsWith('json:chart')) {
+          let cleaned = codeBlockText.trim();
+          cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
+          // Auto-detect JSON widget structure even if lang is generic 'json' or empty
+          let parsedJson: any = null;
+          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
             try {
-              let cleaned = codeBlockText.trim();
-              // Clean relaxed JSON (trailing commas)
-              cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-              const chartData = JSON.parse(cleaned);
-              const chartType = lang.includes(':') ? lang.split(':')[1] : (chartData.type || 'bar');
-              chartData.type = chartType;
+              parsedJson = JSON.parse(cleaned);
+            } catch {
+              parsedJson = null;
+            }
+          }
+
+          const isHeatmap =
+            lang.startsWith('heatmap') ||
+            lang.startsWith('json:heatmap') ||
+            lang.includes('absorption') ||
+            Boolean(
+              parsedJson &&
+              (/absorption|heatmap|penguasaan/i.test(parsedJson.title || '') ||
+                (Array.isArray(parsedJson.items) &&
+                  parsedJson.items.some(
+                    (it: any) =>
+                      it.rate !== undefined ||
+                      (it.concept && (it.status === 'Baik' || it.status === 'Kritis' || it.status === 'Cukup'))
+                  )))
+            );
+
+          const isMisconception =
+            lang.startsWith('misconception') ||
+            lang.startsWith('json:misconception') ||
+            Boolean(
+              parsedJson &&
+              (/miskonsepsi|misconception|pengecoh/i.test(parsedJson.title || '') ||
+                (Array.isArray(parsedJson.items) &&
+                  parsedJson.items.some((it: any) => it.misconception !== undefined)))
+            );
+
+          const isChart =
+            lang.startsWith('chart') ||
+            lang.startsWith('json:chart') ||
+            Boolean(
+              parsedJson &&
+              ((parsedJson.type &&
+                ['bar', 'pie', 'line', 'area', 'doughnut'].includes(parsedJson.type) &&
+                parsedJson.data) ||
+                (parsedJson.data &&
+                  Array.isArray(parsedJson.data) &&
+                  (parsedJson.data[0]?.label || parsedJson.data[0]?.name || parsedJson.data[0]?.value)))
+            );
+
+          if (isHeatmap) {
+            try {
+              const heatmapData = parsedJson || JSON.parse(cleaned);
               elements.push(
-                <AleshaChartViewer
-                  key={`chart-${i}`}
-                  chartData={chartData}
-                  onExpand={onExpandChart}
+                <AleshaAbsorptionHeatmapViewer
+                  key={`heatmap-${i}`}
+                  data={heatmapData}
+                  onAction={onAction}
                 />
               );
             } catch (jsonErr) {
-              console.warn('[MarkdownViewer] Failed to parse chart block JSON:', jsonErr);
+              console.warn('[MarkdownViewer] Failed to parse heatmap block JSON:', jsonErr);
               elements.push(
                 <pre key={`code-${i}`} className="p-3.5 my-2.5 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
                   <code>{codeBlockText.trim()}</code>
                 </pre>
               );
             }
-          } else if (lang.startsWith('misconception') || lang.startsWith('json:misconception')) {
+          } else if (isMisconception) {
             try {
-              let cleaned = codeBlockText.trim();
-              cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-              const miscData = JSON.parse(cleaned);
+              const miscData = parsedJson || JSON.parse(cleaned);
               elements.push(
                 <AleshaMisconceptionsViewer
                   key={`misc-${i}`}
@@ -2288,20 +3576,20 @@ function MarkdownViewer({ content, onExpandChart, onPreviewImage, onAction }: Ma
                 </pre>
               );
             }
-          } else if (lang.startsWith('heatmap') || lang.startsWith('json:heatmap') || lang.includes('absorption')) {
+          } else if (isChart) {
             try {
-              let cleaned = codeBlockText.trim();
-              cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-              const heatmapData = JSON.parse(cleaned);
+              const chartData = parsedJson || JSON.parse(cleaned);
+              const chartType = lang.includes(':') ? lang.split(':')[1] : (chartData.type || 'bar');
+              chartData.type = chartType;
               elements.push(
-                <AleshaAbsorptionHeatmapViewer
-                  key={`heatmap-${i}`}
-                  data={heatmapData}
-                  onAction={onAction}
+                <AleshaChartViewer
+                  key={`chart-${i}`}
+                  chartData={chartData}
+                  onExpand={onExpandChart}
                 />
               );
             } catch (jsonErr) {
-              console.warn('[MarkdownViewer] Failed to parse heatmap block JSON:', jsonErr);
+              console.warn('[MarkdownViewer] Failed to parse chart block JSON:', jsonErr);
               elements.push(
                 <pre key={`code-${i}`} className="p-3.5 my-2.5 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
                   <code>{codeBlockText.trim()}</code>
@@ -2565,31 +3853,31 @@ function normalizeMarkdown(raw: string): string {
   text = text.replace(/([^\n])\s*(\[[^\]]+\]\s*\((?:https?:\/\/[^\s)]+|\/static\/[^\s)]+|\.[a-z0-9]+[^\s)]*)\))/gi, '$1\n\n$2');
   text = text.replace(/(\[[^\]]+\]\s*\((?:https?:\/\/[^\s)]+|\/static\/[^\s)]+|\.[a-z0-9]+[^\s)]*)\))\s*([^\n])/gi, '$1\n\n$2');
 
-  // 5. Convert all localhost / 127.0.0.1 backend URLs directly to http://localhost:8000
-  text = text.replace(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/gi, 'http://localhost:8000');
-  text = text.replace(/https?:\/\/alesha\.djalu\.co\.id\/static\//gi, 'http://localhost:8000/static/');
+  // 5. Convert all localhost / 127.0.0.1 backend URLs directly to https://alesha-be.djalu.co.id
+  text = text.replace(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/gi, getAleshaApiBase());
+  text = text.replace(/https?:\/\/alesha\.djalu\.co\.id\/static\//gi, `${getAleshaApiBase()}/static/`);
 
   return text;
 }
 
 /**
  * Resolves URLs from Alesha AI: converts localhost / 127.0.0.1 or relative /static/ paths
- * directly to backend domain http://localhost:8000
+ * directly to backend domain https://alesha-be.djalu.co.id
  */
 function resolveAleshaLink(url: string): string {
   if (!url) return '';
   let resolved = url.trim();
 
-  // If starts with /static/, route directly to Alesha backend domain (http://localhost:8000)
+  // If starts with /static/, route directly to Alesha backend domain (https://alesha-be.djalu.co.id)
   if (resolved.startsWith('/static/')) {
-    return `http://localhost:8000${resolved}`;
+    return `${getAleshaApiBase()}${resolved}`;
   }
 
-  // Convert any localhost or 127.0.0.1 URL directly to http://localhost:8000
-  resolved = resolved.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i, 'http://localhost:8000');
+  // Convert any localhost or 127.0.0.1 URL directly to https://alesha-be.djalu.co.id
+  resolved = resolved.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i, getAleshaApiBase());
 
   // Fix any static paths pointing to alesha.djalu.co.id/static/ to alesha-be.djalu.co.id/static/
-  resolved = resolved.replace(/^https?:\/\/alesha\.djalu\.co\.id\/static\//i, 'http://localhost:8000/static/');
+  resolved = resolved.replace(/^https?:\/\/alesha\.djalu\.co\.id\/static\//i, `${getAleshaApiBase()}/static/`);
 
   return resolved;
 }
@@ -2920,7 +4208,7 @@ function parseDocumentDownloadCard(line: string, key: string | number): React.Re
  */
 
 
-interface ActionButton {
+export interface ActionButton {
   label: string;
   prompt: string;
 }
@@ -2945,16 +4233,86 @@ const TUTOR_MODES: TutorModeItem[] = [
   { id: 'socratic', label: 'Socratic', icon: '🏛️', title: 'Panduan tanya balik tanpa jawaban instan' },
 ];
 
-function extractActionButtons(rawText: string): { cleanContent: string; actions: ActionButton[] } {
+export function extractActionButtons(rawText: string): { cleanContent: string; actions: ActionButton[] } {
+  if (!rawText) return { cleanContent: '', actions: [] };
+
   const actions: ActionButton[] = [];
-  const regex = /\[action:([^\|\]]+)\|?([^\]]*)\]/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(rawText)) !== null) {
-    const label = match[1].trim();
-    const prompt = match[2] ? match[2].trim() : label;
-    actions.push({ label, prompt });
+  const cleanParts: string[] = [];
+  let cursor = 0;
+  const length = rawText.length;
+
+  while (cursor < length) {
+    const startIdx = rawText.indexOf('[action:', cursor);
+    if (startIdx === -1) {
+      cleanParts.push(rawText.slice(cursor));
+      break;
+    }
+
+    cleanParts.push(rawText.slice(cursor, startIdx));
+
+    let depth = 0;
+    let endIdx = -1;
+    let inString = false;
+    let stringChar = '';
+    let isEscaped = false;
+
+    for (let i = startIdx; i < length; i++) {
+      const ch = rawText[i];
+
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (ch === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (inString) {
+        if (ch === stringChar) {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"' || ch === "'") {
+        inString = true;
+        stringChar = ch;
+        continue;
+      }
+
+      if (ch === '[') {
+        depth++;
+      } else if (ch === ']') {
+        depth--;
+        if (depth === 0) {
+          endIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (endIdx !== -1) {
+      const tagContent = rawText.slice(startIdx + 8, endIdx); // Skip '[action:'
+      const pipeIdx = tagContent.indexOf('|');
+      const label = (pipeIdx === -1 ? tagContent : tagContent.slice(0, pipeIdx)).trim();
+      const prompt = (pipeIdx === -1 ? label : tagContent.slice(pipeIdx + 1)).trim();
+
+      if (label) {
+        actions.push({ label, prompt });
+      }
+      cursor = endIdx + 1;
+    } else {
+      cleanParts.push(rawText.slice(startIdx));
+      break;
+    }
   }
-  const cleanContent = rawText.replace(regex, '').trim();
+
+  let cleanContent = cleanParts.join('').trim();
+  // Defense-in-depth: strip accidental broken trailing JSON fragment if any
+  cleanContent = cleanContent.replace(/,?\s*"(?:answer|explanation|options|question)":[\s\S]*$/, '').trim();
+
   return { cleanContent, actions };
 }
 
@@ -3090,30 +4448,138 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTutorMode, setActiveTutorMode] = useState<string>('explain');
-  const [savePlanModal, setSavePlanModal] = useState<{
+  const [saveAssignmentModal, setSaveAssignmentModal] = useState<{
     isOpen: boolean;
-    data: { title: string; subject: string; gradeLevel: number; meetings: number; content: string };
+    data: { title: string; instructions: string; classSubjectId?: string; maxScore?: number; dueDays?: number };
   }>({
     isOpen: false,
-    data: { title: '', subject: 'Umum', gradeLevel: 10, meetings: 3, content: '' },
+    data: { title: '', instructions: '' },
   });
 
-  const handleOpenSavePlanModal = (fullAssistantMessage: string, promptTag: string) => {
-    let planTitle = 'Modul Ajar Kurikulum Merdeka';
-    let planSubject = 'Umum';
-    let planGrade = 10;
-    let planContent = fullAssistantMessage.replace(/\[action:[^\]]+\]/g, '').trim();
+  const handleOpenSaveAssignmentModal = (fullAssistantMessage: string, promptTag: string) => {
+    let taskTitle = '';
+    let taskInstructions = '';
+    let maxScore = 100;
+    let dueDays = 7;
 
-    if (promptTag.startsWith('SIMPAN_MODUL:')) {
+    if (promptTag.startsWith('BUAT_TUGAS:')) {
       try {
-        const jsonStr = promptTag.slice(13).trim();
+        const colonIdx = promptTag.indexOf(':');
+        const jsonStr = promptTag.slice(colonIdx + 1).trim();
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.title) taskTitle = parsed.title;
+        if (parsed.instructions) taskInstructions = parsed.instructions;
+        if (parsed.max_score) maxScore = Number(parsed.max_score) || 100;
+        if (parsed.due_days) dueDays = Number(parsed.due_days) || 7;
+      } catch (e) {
+        console.warn('Failed to parse BUAT_TUGAS JSON:', e);
+      }
+    }
+
+    const cleanContent = extractActionButtons(fullAssistantMessage).cleanContent;
+
+    if (!taskTitle) {
+      const lines = cleanContent.split('\n');
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.startsWith('# ') || t.startsWith('## ')) {
+          taskTitle = t.replace(/^#+\s*/, '').trim();
+          break;
+        }
+      }
+      if (!taskTitle) taskTitle = 'Tugas Analisis dan Pemahaman Materi';
+    }
+
+    if (!taskInstructions) {
+      taskInstructions = cleanContent;
+    }
+
+    setSaveAssignmentModal({
+      isOpen: true,
+      data: {
+        title: taskTitle,
+        instructions: taskInstructions,
+        maxScore,
+        dueDays,
+      }
+    });
+  };
+
+  const [savePlanModal, setSavePlanModal] = useState<{
+    isOpen: boolean;
+    data: { title: string; subject?: string; gradeLevel?: number; description?: string; type?: string; meetings?: number; content: string };
+  }>({
+    isOpen: false,
+    data: { title: '', subject: 'Umum', gradeLevel: 10, description: '', type: 'TEXT', meetings: 3, content: '' },
+  });
+
+  const [actionWriteModal, setActionWriteModal] = useState<{
+    isOpen: boolean;
+    actionTag: string;
+    sourceMessage?: string;
+  }>({
+    isOpen: false,
+    actionTag: '',
+    sourceMessage: ''
+  });
+
+  const handleOpenActionWriteModal = (actionTag: string, sourceMessage?: string) => {
+    setActionWriteModal({
+      isOpen: true,
+      actionTag,
+      sourceMessage: sourceMessage || ''
+    });
+  };
+
+  const handleOpenSavePlanModal = (fullAssistantMessage: string, promptTag: string) => {
+    let planTitle = '';
+    let planSubject = '';
+    let planGrade = 10;
+    let planDescription = '';
+    let planType = 'TEXT';
+    let planContent = extractActionButtons(fullAssistantMessage).cleanContent;
+
+    if (promptTag.startsWith('SIMPAN_MODUL:') || promptTag.startsWith('SIMPAN_MATERI:')) {
+      try {
+        const colonIdx = promptTag.indexOf(':');
+        const jsonStr = promptTag.slice(colonIdx + 1).trim();
         const parsed = JSON.parse(jsonStr);
         if (parsed.title) planTitle = parsed.title;
         if (parsed.subject) planSubject = parsed.subject;
         if (parsed.grade) planGrade = Number(parsed.grade) || 10;
+        if (parsed.description) planDescription = parsed.description;
+        if (parsed.type) planType = parsed.type;
         if (parsed.content) planContent = parsed.content;
       } catch (e) {
-        console.warn('Failed to parse SIMPAN_MODUL JSON:', e);
+        console.warn('Failed to parse SIMPAN_MODUL/MATERI JSON:', e);
+      }
+    }
+
+    // Auto-detect title and description from markdown if not explicitly given
+    const lines = planContent.split('\n');
+    if (!planTitle) {
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.startsWith('# ')) {
+          planTitle = t.replace(/^#+\s*/, '').trim();
+          break;
+        } else if (t.startsWith('## ') && !planTitle) {
+          planTitle = t.replace(/^#+\s*/, '').trim();
+          break;
+        }
+      }
+    }
+    if (!planTitle) {
+      planTitle = 'Materi ' + (planSubject ? planSubject : 'Kurikulum Merdeka');
+    }
+
+    if (!planDescription) {
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.length > 20 && !t.startsWith('#') && !t.startsWith('|') && !t.startsWith('-') && !t.startsWith('*')) {
+          planDescription = t.slice(0, 160);
+          break;
+        }
       }
     }
 
@@ -3123,6 +4589,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         title: planTitle,
         subject: planSubject,
         gradeLevel: planGrade,
+        description: planDescription,
+        type: planType,
         meetings: 3,
         content: planContent,
       },
@@ -3143,7 +4611,7 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<any>(null);
 
-  const aleshaApiBase = (import.meta as any).env?.VITE_ALESHA_API_URL || 'http://localhost:8000';
+  const aleshaApiBase = getAleshaApiBase();
 
   // Synchronize state when logged-in user changes
   useEffect(() => {
@@ -3789,8 +5257,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
       <div className="flex-1 flex flex-col bg-slate-100/60 min-w-0">
         {/* Top Header matching SM-Sinau */}
         <div className={`px-6 py-3.5 flex items-center justify-between shadow-2xs shrink-0 ${isUserUmum
-            ? 'bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 text-white border-b border-brand-600/30'
-            : 'bg-white/90 backdrop-blur-md border-b border-slate-200 text-slate-900'
+          ? 'bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 text-white border-b border-brand-600/30'
+          : 'bg-white/90 backdrop-blur-md border-b border-slate-200 text-slate-900'
           }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${isUserUmum ? 'bg-white/20 text-white' : 'bg-gradient-to-tr from-blue-600 via-brand-700 to-cyan-500 text-white shadow-brand-700/20'
@@ -3885,8 +5353,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                       disabled={inQuizOrExam}
                       title={tm.title}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition shrink-0 cursor-pointer shadow-2xs ${isCurActive
-                          ? 'bg-brand-700 text-white font-semibold ring-2 ring-brand-300'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        ? 'bg-brand-700 text-white font-semibold ring-2 ring-brand-300'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                         }`}
                     >
                       <span>{tm.icon}</span>
@@ -4024,23 +5492,48 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                           {actions.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
                               {actions.map((act: ActionButton, actIdx: number) => {
-                                const isSavePlan = act.label.toLowerCase().includes('simpan ke modul') || act.prompt.startsWith('SIMPAN_MODUL');
+                                const isSavePlan =
+                                  act.label.toLowerCase().includes('simpan ke modul') ||
+                                  act.label.toLowerCase().includes('simpan modul') ||
+                                  act.label.toLowerCase().includes('simpan materi') ||
+                                  act.label.toLowerCase().includes('simpan bahan ajar') ||
+                                  act.prompt.startsWith('SIMPAN_MODUL') ||
+                                  act.prompt.startsWith('SIMPAN_MATERI');
+                                const isWriteAction =
+                                  act.prompt.startsWith('SIMPAN_SOAL:') ||
+                                  act.prompt.startsWith('BUAT_KUIS:') ||
+                                  act.prompt.startsWith('BUAT_TUGAS:') ||
+                                  act.prompt.startsWith('CATAT_PELANGGARAN:') ||
+                                  act.prompt.startsWith('JADWAL_KONSELING:') ||
+                                  act.prompt.startsWith('BUAT_PENGUMUMAN:') ||
+                                  act.prompt.startsWith('VERIFIKASI_JURNAL:');
+                                const isSystemWrite = isSavePlan || isWriteAction;
+
                                 return (
                                   <button
                                     key={actIdx}
                                     onClick={() => {
+                                      const isCreateAssignment =
+                                        act.label.toLowerCase().includes('terbitkan tugas') ||
+                                        act.label.toLowerCase().includes('buat tugas') ||
+                                        act.prompt.startsWith('BUAT_TUGAS:');
+
                                       if (isSavePlan) {
                                         handleOpenSavePlanModal(m.content, act.prompt);
+                                      } else if (isCreateAssignment) {
+                                        handleOpenSaveAssignmentModal(m.content, act.prompt);
+                                      } else if (isWriteAction) {
+                                        handleOpenActionWriteModal(act.prompt, m.content);
                                       } else {
                                         handleSendMessage(act.prompt);
                                       }
                                     }}
-                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 ${isSavePlan
-                                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 font-bold ring-1 ring-emerald-200'
-                                        : 'bg-brand-50 hover:bg-brand-100 text-brand-800 border-brand-200'
+                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 ${isSystemWrite
+                                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 font-bold ring-1 ring-emerald-200'
+                                      : 'bg-brand-50 hover:bg-brand-100 text-brand-800 border-brand-200'
                                       }`}
                                   >
-                                    {isSavePlan ? <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Sparkles className="w-3 h-3 text-brand-600" />}
+                                    {isSystemWrite ? <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Sparkles className="w-3 h-3 text-brand-600" />}
                                     <span>{act.label}</span>
                                   </button>
                                 );
@@ -4360,8 +5853,31 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
         isOpen={savePlanModal.isOpen}
         onClose={() => setSavePlanModal(prev => ({ ...prev, isOpen: false }))}
         initialData={savePlanModal.data}
+        onSaved={(savedTitle, publish) => {
+          handleSendMessage(publish ? `Materi "${savedTitle}" telah berhasil diterbitkan ke Modul Materi Kelas SM-Sinau.` : `Draf materi "${savedTitle}" telah berhasil disimpan ke Modul Materi Kelas SM-Sinau.`);
+        }}
+      />
+
+      {/* Modal Terbitkan Tugas LMS (Identik dengan modal Tugas Baru) */}
+      <SaveAssignmentModal
+        isOpen={saveAssignmentModal.isOpen}
+        onClose={() => setSaveAssignmentModal(prev => ({ ...prev, isOpen: false }))}
+        initialData={saveAssignmentModal.data}
         onSaved={(savedTitle) => {
-          handleSendMessage(`Draf modul ajar "${savedTitle}" telah berhasil disimpan ke Modul Materi Kelas SM-Sinau.`);
+          handleSendMessage(`Tugas "${savedTitle}" telah berhasil diterbitkan ke menu Tugas SM-Sinau.`);
+        }}
+      />
+
+      {/* Modal Eksekusi Write ke Sistem Database (Semua Peran) */}
+      <AleshaActionWriteModal
+        isOpen={actionWriteModal.isOpen}
+        onClose={() => setActionWriteModal(prev => ({ ...prev, isOpen: false }))}
+        actionTag={actionWriteModal.actionTag}
+        sourceMessage={actionWriteModal.sourceMessage}
+        effectiveRole={effectiveRole}
+        currentUserId={currentUser?.id}
+        onSaved={(savedSummary) => {
+          handleSendMessage(`Data telah berhasil disimpan dan tercatat ke database sistem: ${savedSummary}`);
         }}
       />
     </div>

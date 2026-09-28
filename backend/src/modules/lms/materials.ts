@@ -14,7 +14,7 @@ import { hasRole } from '../../core/auth';
 const r = Router();
 
 const materialSchema = z.object({
-  class_subject_id: z.string().nullable().optional(), subject_id: z.string().nullable().optional(), major_id: z.string().nullable().optional(), grade_level: z.number().int().nullable().optional(),
+  class_subject_id: z.string().nullable().optional(), subject_id: z.string().nullable().optional(), major_id: z.string().nullable().optional(), grade_level: z.number().int().nullable().optional(), target_class: z.string().nullable().optional(),
   title: z.string().min(2).max(200), description: z.string().max(4000).nullable().optional(), type: z.enum(['FILE', 'VIDEO', 'LINK', 'TEXT']).default('FILE'),
   content_url: z.string().max(500).nullable().optional(), content_text: z.string().max(200000).nullable().optional(), file_id: z.string().nullable().optional(), is_published: z.boolean().optional(), is_public: z.boolean().optional(),
 });
@@ -23,7 +23,14 @@ const SELECT = `m.*, cs.class_id, c.name AS class_name, s.name AS subject_name, 
   (SELECT COUNT(*) FROM \`${T('material_views')}\` v WHERE v.material_id = m.id) AS reader_count`;
 const FROM = `FROM \`${T('materials')}\` m LEFT JOIN \`${T('class_subjects')}\` cs ON cs.id = m.class_subject_id LEFT JOIN \`${T('classes')}\` c ON c.id = cs.class_id LEFT JOIN \`${T('subjects')}\` s ON s.id = cs.subject_id
   LEFT JOIN \`${T('subjects')}\` s2 ON s2.id = m.subject_id LEFT JOIN \`${T('users')}\` u ON u.id = m.created_by LEFT JOIN \`${T('files')}\` f ON f.id = m.file_id`;
-const present = (row: Record<string, unknown>, viewerId?: string) => ({ ...row, subject_name: row.subject_name ?? row.subject_name2, subject_name2: undefined, file_url: fileUrl(row.file_id as string | null), is_mine: viewerId ? row.created_by === viewerId : undefined });
+const present = (row: Record<string, unknown>, viewerId?: string) => ({
+  ...row,
+  class_name: row.class_name || (row.grade_level ? ('Kelas ' + row.grade_level) : null),
+  subject_name: row.subject_name ?? row.subject_name2 ?? 'Umum',
+  subject_name2: undefined,
+  file_url: fileUrl(row.file_id as string | null),
+  is_mine: viewerId ? row.created_by === viewerId : undefined
+});
 
 /** Visibility: tenant-wide roles see all; teachers their class-subjects + own uploads + general (no class) materials of their subjects; students their class + general materials matching major/grade. */
 function visibility(u: import('../../core/auth').AuthUser): { sql: string; params: unknown[] } {
@@ -54,6 +61,7 @@ r.get('/', requirePermission('material:read'), wrap(async (req, res) => {
   if (str(req.query.class_id)) { where += ' AND cs.class_id = ?'; params.push(String(req.query.class_id)); }
   if (str(req.query.subject_id)) { where += ' AND (cs.subject_id = ? OR m.subject_id = ?)'; params.push(String(req.query.subject_id), String(req.query.subject_id)); }
   if (str(req.query.type)) { where += ' AND m.type = ?'; params.push(String(req.query.type)); }
+  if (str(req.query.grade_level)) { where += ' AND (m.grade_level = ? OR c.grade_level = ?)'; params.push(Number(req.query.grade_level), Number(req.query.grade_level)); }
   if (req.query.mine === '1') { where += ' AND m.created_by = ?'; params.push(u.id); }
   if (req.query.published !== undefined && req.query.published !== '') { where += ' AND m.is_published = ?'; params.push(req.query.published === '1' ? 1 : 0); }
   const total = Number((await queryOne(`SELECT COUNT(*) AS c ${FROM} ${where}`, params))?.c ?? 0);
@@ -81,13 +89,44 @@ r.get('/:id', requirePermission('material:read'), wrap(async (req, res) => {
 r.post('/', requirePermission('material:write'), validate(materialSchema), wrap(async (req, res) => {
   const u = req.auth!;
   const b = req.body;
-  if (b.class_subject_id) await assertClassSubject(u, b.class_subject_id, { teach: true });
+  if (b.class_subject_id) {
+    let cs = await queryOne(`SELECT cs.*, c.grade_level, c.name AS class_name FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE cs.id = ? AND cs.tenant_id = ?`, [b.class_subject_id, u.tenantId]);
+    if (cs && cs.teacher_id !== u.id && !isTenantWide(u)) {
+      const myCs = await queryOne(`SELECT cs.*, c.grade_level, c.name AS class_name FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE cs.tenant_id = ? AND cs.teacher_id = ? ORDER BY (cs.class_id = ?) DESC LIMIT 1`, [u.tenantId, u.id, cs.class_id]);
+      if (myCs) {
+        cs = myCs;
+        b.class_subject_id = myCs.id;
+      }
+    }
+    if (cs) {
+      if (!b.subject_id) b.subject_id = cs.subject_id;
+      if (!b.grade_level) b.grade_level = cs.grade_level;
+    } else {
+      b.class_subject_id = null;
+    }
+  }
   if (b.type === 'FILE' && !b.file_id) throw badRequest('Unggah berkas dulu (file_id)');
   if ((b.type === 'VIDEO' || b.type === 'LINK') && !b.content_url) throw badRequest('Tautan wajib diisi');
   if (b.type === 'TEXT' && !b.content_text) throw badRequest('Isi materi wajib diisi');
   const id = newId();
   const publish = b.is_published ?? false;
-  await insertRow('materials', { id, tenant_id: u.tenantId, ...b, is_published: publish, published_at: publish ? new Date() : null, created_by: u.id });
+
+  // Auto-link class_subject_id if omitted but target_class or grade_level is provided
+  if (!b.class_subject_id && (b.target_class || b.grade_level)) {
+    let matchCs: any = null;
+    if (b.target_class) {
+      matchCs = await queryOne(`SELECT cs.id, cs.subject_id FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE (c.name = ? OR c.name LIKE ?) AND cs.tenant_id = ? ORDER BY (cs.teacher_id = ?) DESC LIMIT 1`, [b.target_class, `%${b.target_class}%`, u.tenantId, u.id]);
+    }
+    if (!matchCs && b.grade_level) {
+      matchCs = await queryOne(`SELECT cs.id, cs.subject_id FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE c.grade_level = ? AND cs.tenant_id = ? ORDER BY (cs.teacher_id = ?) DESC LIMIT 1`, [b.grade_level, u.tenantId, u.id]);
+    }
+    if (matchCs) {
+      b.class_subject_id = matchCs.id;
+      if (!b.subject_id) b.subject_id = matchCs.subject_id;
+    }
+  }
+  const { target_class, ...materialData } = b;
+  await insertRow('materials', { id, tenant_id: u.tenantId, ...materialData, is_published: publish, published_at: publish ? new Date() : null, created_by: u.id });
   if (publish && b.class_subject_id) await notifyClass(u.tenantId, b.class_subject_id, id, b.title);
   await audit(req, 'material.create', 'materials', id, undefined, { title: b.title, type: b.type });
   const row = await queryOne(`SELECT ${SELECT} ${FROM} WHERE m.id = ?`, [id]);

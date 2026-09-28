@@ -1,3 +1,4 @@
+import { getAleshaApiBase, getAleshaKioskUrl } from '@/lib/alesha';
 const secureStorage = {
   getItem: (k: string) => localStorage.getItem(k),
   setItem: (k: string, v: any) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
@@ -38,7 +39,7 @@ interface AleshaKioskModalProps {
 export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
   isOpen,
   onClose,
-  kioskUrl = 'http://localhost:3000/kiosk-public',
+  kioskUrl = getAleshaKioskUrl(),
   activeMenu = 'Dashboard',
   activeFilters,
   selectedAsset,
@@ -53,7 +54,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
   const [deviceId, setDeviceId] = useState<string>('');
 
   useEffect(() => {
-    getDeviceId().then(setDeviceId).catch(() => {});
+    getDeviceId().then(setDeviceId).catch(() => { });
   }, []);
 
   const [publicPromptCount, setPublicPromptCount] = useState<number>(() => {
@@ -253,7 +254,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
     if (!isOpen) return;
     const syncQuota = async () => {
       try {
-        const aleshaApiBase = (import.meta as any).env?.VITE_ALESHA_API_URL || 'http://localhost:8000';
+        const aleshaApiBase = getAleshaApiBase();
         const devId = deviceId || (await getDeviceId());
         const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=voice&device_id=${encodeURIComponent(devId)}`, {
           headers: { 'X-Device-Id': devId },
@@ -268,7 +269,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           setIsLimitReached(limitReached);
           try {
             sessionStorage.setItem('sinau_voice_prompt_count', String(voiceCount));
-          } catch (_) {}
+          } catch (_) { }
         }
       } catch (e) {
         console.warn('[AleshaKioskModal] Error fetching public quota:', e);
@@ -314,7 +315,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
             }
             localStorage.setItem(msgKey, JSON.stringify(existing));
             window.dispatchEvent(new CustomEvent('alesha_chat_updated', { detail: { sessionId } }));
-          } catch(e) {}
+          } catch (e) { }
 
           // Increment & sync voice quota for public visitor immediately
           if (typeof event.data.voice_prompt_count === 'number') {
@@ -323,11 +324,11 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
             setIsLimitReached(vCount >= 5);
             try {
               sessionStorage.setItem('sinau_voice_prompt_count', String(vCount));
-            } catch (_) {}
+            } catch (_) { }
           } else {
             setPublicPromptCount(prev => {
               const next = Math.min(5, prev + 1);
-              try { sessionStorage.setItem('sinau_voice_prompt_count', String(next)); } catch (_) {}
+              try { sessionStorage.setItem('sinau_voice_prompt_count', String(next)); } catch (_) { }
               if (next >= 5) setIsLimitReached(true);
               return next;
             });
@@ -352,14 +353,14 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           setPublicPromptCount(5);
           try {
             sessionStorage.setItem('sinau_voice_prompt_count', '5');
-          } catch(e) {}
+          } catch (e) { }
         } else if (event.data.type === 'ALESHA_KIOSK_EVENT' && event.data.action === 'PROMPT_USED') {
           const c = event.data.count || 1;
           setPublicPromptCount(c);
           try {
             sessionStorage.setItem('sinau_voice_prompt_count', String(c));
-          setIsLimitReached(c >= 5);
-          } catch(e) {}
+            setIsLimitReached(c >= 5);
+          } catch (e) { }
           if (c >= 5) {
             setIsLimitReached(true);
           }
@@ -378,7 +379,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
     if (isOpen) {
       try {
         sessionStorage.removeItem('sinau_public_prompt_count');
-      } catch (_) {}
+      } catch (_) { }
       const saved = sessionStorage.getItem('sinau_voice_prompt_count');
       const count = saved ? parseInt(saved, 10) : 0;
       setPublicPromptCount(count);
@@ -429,11 +430,10 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           {/* Sisa Kuota Suara Avatar (Visual Quota Badge for Public Visitors) */}
           {(!currentUser || currentUser.role === 'user_umum') && (
             <div
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-xl border text-xs shadow-xs transition-all ${
-                isLimitReached
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-xl border text-xs shadow-xs transition-all ${isLimitReached
                   ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                   : 'bg-indigo-500/10 border-indigo-500/25 text-indigo-200'
-              }`}
+                }`}
             >
               <Sparkles className={`w-3.5 h-3.5 ${isLimitReached ? 'text-rose-400' : 'text-amber-400'}`} />
               <span className="text-slate-400 font-medium hidden sm:inline">Sisa Kuota Suara:</span>
@@ -489,10 +489,10 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
               }
 
               let resolvedUrl = fUrl.startsWith('/static/')
-                ? `http://localhost:8000${fUrl}`
+                ? `${getAleshaApiBase()}${fUrl}`
                 : fUrl;
-              resolvedUrl = resolvedUrl.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1):8000/i, 'http://localhost:8000');
-              resolvedUrl = resolvedUrl.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i, 'http://localhost:3000');
+              resolvedUrl = resolvedUrl.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1):8000/i, getAleshaApiBase());
+              resolvedUrl = resolvedUrl.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i, getAleshaKioskUrl().replace('/kiosk-public', ''));
 
               return (
                 <a

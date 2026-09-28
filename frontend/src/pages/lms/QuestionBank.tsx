@@ -30,10 +30,17 @@ export default function QuestionBank() {
             { key: 'type', header: 'Tipe', render: (r) => <Badge tone="brand">{QUESTION_TYPE_LABEL[r.type as string]}</Badge> },
             { key: 'concept_name', header: 'Konsep', render: (r) => (r.concept_name as string) ?? <span className="text-ink-3">-</span> },
             { key: 'subject_name', header: 'Mapel' },
-            { key: 'difficulty', header: 'Tingkat', render: (r) => <Badge tone={DIFF_TONE[r.difficulty as keyof typeof DIFF_TONE] ?? 'gray'}>{r.difficulty as string}</Badge> },
+            { key: 'grade_level', header: 'Kelas', render: (r) => r.grade_level ? <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">Kelas {String(r.grade_level)}</span> : <span className="text-ink-3">-</span> },
+            { key: 'difficulty', header: 'Kesulitan', render: (r) => <Badge tone={DIFF_TONE[r.difficulty as keyof typeof DIFF_TONE] ?? 'gray'}>{r.difficulty as string}</Badge> },
             { key: 'usage_count', header: 'Dipakai', className: 'text-center' },
           ]}
-          filters={[{ name: 'subject_id', label: 'Mapel', type: 'async-select', source: { url: '/academic/subjects', label: 'name' } }, { name: 'type', label: 'Tipe', options: Object.entries(QUESTION_TYPE_LABEL).map(([v, l]) => ({ value: v, label: l })) }, { name: 'difficulty', label: 'Tingkat', options: ['MUDAH', 'SEDANG', 'SULIT'].map((x) => ({ value: x, label: x })) }, { name: 'concept_id', label: 'Konsep', type: 'async-select', source: { url: '/questions/concepts', label: (r) => `${r.code} — ${r.name}` } }]}
+          filters={[
+            { name: 'subject_id', label: 'Mapel', type: 'async-select', source: { url: '/academic/subjects', label: 'name' } },
+            { name: 'grade_level', label: 'Kelas', options: [10, 11, 12].map((g) => ({ value: String(g), label: `Kelas ${g}` })) },
+            { name: 'type', label: 'Tipe', options: Object.entries(QUESTION_TYPE_LABEL).map(([v, l]) => ({ value: v, label: l })) },
+            { name: 'difficulty', label: 'Kesulitan', options: ['MUDAH', 'SEDANG', 'SULIT'].map((x) => ({ value: x, label: x })) },
+            { name: 'concept_id', label: 'Konsep', type: 'async-select', source: { url: '/questions/concepts', label: (r) => `${r.code} — ${r.name}` } }
+          ]}
         />
       ) : (
         <CrudPage<Dict> title="Konsep / Tujuan Pembelajaran" subtitle="Peta konsep per mapel — dasar analisis penguasaan siswa." endpoint="/questions/concepts" entityLabel="konsep" perm={{ write: 'question:write' }}

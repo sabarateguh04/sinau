@@ -35,9 +35,10 @@ import {
   Lock,
 } from 'lucide-react';
 import { useAuth } from '@/store/auth';
-import { ALESHA_NAME, ALESHA_STORAGE_KEY, hasBrowserSpeech, hasBrowserTts, listen, speak, type Listener } from '@/lib/alesha';
+import { ALESHA_NAME, ALESHA_STORAGE_KEY, hasBrowserSpeech, hasBrowserTts, listen, speak, getAleshaApiBase, getAleshaKioskUrl, type Listener } from '@/lib/alesha';
 import { cx } from '@/components/ui';
 import { AleshaKioskModal } from './AleshaKioskModal';
+import { AleshaAbsorptionHeatmapViewer, AleshaMisconceptionsViewer, AleshaActionWriteModal, extractActionButtons } from './AiChatSinauModule';
 
 type Mode = 'chat' | 'voice';
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -268,43 +269,121 @@ function RichText({ text, onAction }: { text: string; onAction?: (prompt: string
   let tableRows: string[][] = [];
   let inCodeBlock = false;
   let codeBlockLines: string[] = [];
+  let codeLanguage = '';
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
 
-    // Action button on single line: [action:Label|Prompt] or [action:Label]
-    const actionMatch = trimmed.match(/^\[action:([^\|\]]+)(?:\|([^\]]*))?\]$/);
-    if (actionMatch) {
-      const label = actionMatch[1].trim();
-      const prompt = (actionMatch[2] || label).trim();
-      elements.push(
-        <div key={`act-${i}`} className="my-2">
-          <button
-            type="button"
-            onClick={() => onAction && onAction(prompt)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-            <span>{label}</span>
-          </button>
-        </div>
-      );
-      continue;
+    // Action button on single line: handled via extractActionButtons
+    if (trimmed.startsWith('[action:')) {
+      const extracted = extractActionButtons(trimmed);
+      if (extracted.actions.length > 0) {
+        extracted.actions.forEach((act, actIdx) => {
+          elements.push(
+            <div key={`act-${i}-${actIdx}`} className="my-2">
+              <button
+                type="button"
+                onClick={() => onAction && onAction(act.prompt)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                <span>{act.label}</span>
+              </button>
+            </div>
+          );
+        });
+        continue;
+      }
     }
 
     // Code block ```
     if (trimmed.startsWith('```')) {
       if (inCodeBlock) {
-        elements.push(
-          <pre key={`code-${i}`} className="p-2.5 my-2 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
-            <code>{codeBlockLines.join('\n')}</code>
-          </pre>
-        );
+        const lang = (codeLanguage || '').toLowerCase().trim();
+        const codeText = codeBlockLines.join('\n').trim();
+        let cleaned = codeText.replace(/,\s*([}\]])/g, '$1');
+        let parsedJson: any = null;
+        if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+          try {
+            parsedJson = JSON.parse(cleaned);
+          } catch {
+            parsedJson = null;
+          }
+        }
+
+        const isHeatmap =
+          lang.startsWith('heatmap') ||
+          lang.startsWith('json:heatmap') ||
+          lang.includes('absorption') ||
+          Boolean(
+            parsedJson &&
+            (/absorption|heatmap|penguasaan/i.test(parsedJson.title || '') ||
+              (Array.isArray(parsedJson.items) &&
+                parsedJson.items.some(
+                  (it: any) =>
+                    it.rate !== undefined ||
+                    (it.concept && (it.status === 'Baik' || it.status === 'Kritis' || it.status === 'Cukup'))
+                )))
+          );
+
+        const isMisconception =
+          lang.startsWith('misconception') ||
+          lang.startsWith('json:misconception') ||
+          Boolean(
+            parsedJson &&
+            (/miskonsepsi|misconception|pengecoh/i.test(parsedJson.title || '') ||
+              (Array.isArray(parsedJson.items) &&
+                parsedJson.items.some((it: any) => it.misconception !== undefined)))
+          );
+
+        if (isHeatmap) {
+          try {
+            const heatmapData = parsedJson || JSON.parse(cleaned);
+            elements.push(
+              <AleshaAbsorptionHeatmapViewer
+                key={`heatmap-${i}`}
+                data={heatmapData}
+                onAction={(prompt) => onAction && onAction(prompt)}
+              />
+            );
+          } catch {
+            elements.push(
+              <pre key={`code-${i}`} className="p-2.5 my-2 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
+                <code>{codeText}</code>
+              </pre>
+            );
+          }
+        } else if (isMisconception) {
+          try {
+            const miscData = parsedJson || JSON.parse(cleaned);
+            elements.push(
+              <AleshaMisconceptionsViewer
+                key={`misc-${i}`}
+                data={miscData}
+                onAction={(prompt) => onAction && onAction(prompt)}
+              />
+            );
+          } catch {
+            elements.push(
+              <pre key={`code-${i}`} className="p-2.5 my-2 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
+                <code>{codeText}</code>
+              </pre>
+            );
+          }
+        } else {
+          elements.push(
+            <pre key={`code-${i}`} className="p-2.5 my-2 bg-slate-900 text-slate-100 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed shadow-inner">
+              <code>{codeText}</code>
+            </pre>
+          );
+        }
         inCodeBlock = false;
         codeBlockLines = [];
+        codeLanguage = '';
       } else {
         inCodeBlock = true;
+        codeLanguage = trimmed.slice(3).trim();
       }
       continue;
     }
@@ -433,6 +512,32 @@ export function AleshaWidget() {
   const reduce = useReducedMotion();
 
   const [open, setOpen] = useState(false);
+  const [actionWriteModal, setActionWriteModal] = useState<{
+    isOpen: boolean;
+    actionTag: string;
+    sourceMessage?: string;
+  }>({
+    isOpen: false,
+    actionTag: '',
+    sourceMessage: ''
+  });
+
+  const handleWidgetAction = (prompt: string, sourceMessage?: string) => {
+    const isWriteAction =
+      prompt.startsWith('SIMPAN_SOAL:') ||
+      prompt.startsWith('BUAT_KUIS:') ||
+      prompt.startsWith('BUAT_TUGAS:') ||
+      prompt.startsWith('CATAT_PELANGGARAN:') ||
+      prompt.startsWith('JADWAL_KONSELING:') ||
+      prompt.startsWith('BUAT_PENGUMUMAN:') ||
+      prompt.startsWith('VERIFIKASI_JURNAL:');
+
+    if (isWriteAction) {
+      setActionWriteModal({ isOpen: true, actionTag: prompt, sourceMessage: sourceMessage || '' });
+    } else if (!thinking && !isLimitReached) {
+      void send(prompt);
+    }
+  };
   const [mode, setMode] = useState<Mode>('chat');
   const [isKioskOpen, setIsKioskOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -477,7 +582,7 @@ export function AleshaWidget() {
   // Sync device quota from backend (tied to device IP across all browsers / tabs / incognito)
   const syncDeviceQuota = useCallback(async () => {
     try {
-      const aleshaApiBase = (import.meta as any).env?.VITE_ALESHA_API_URL || 'http://localhost:8000';
+      const aleshaApiBase = getAleshaApiBase();
       const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat`);
       if (res.ok) {
         const data = await res.json();
@@ -537,8 +642,24 @@ export function AleshaWidget() {
 
   const send = useCallback(
     async (text: string, viaVoice = false) => {
-      const content = text.trim();
+      let content = text.trim();
       if (!content || thinking) return;
+
+      if (content.startsWith('SIMPAN_SOAL:')) {
+        content = `Tolong simpan butir soal ini ke bank soal CBT sistem: ${content.slice(12)}`;
+      } else if (content.startsWith('BUAT_KUIS:')) {
+        content = `Tolong terbitkan kuis CBT ini ke sistem: ${content.slice(10)}`;
+      } else if (content.startsWith('BUAT_TUGAS:')) {
+        content = `Tolong terbitkan tugas ini ke sistem: ${content.slice(11)}`;
+      } else if (content.startsWith('CATAT_PELANGGARAN:')) {
+        content = `Tolong catat pelanggaran tata tertib siswa ini ke sistem BK: ${content.slice(18)}`;
+      } else if (content.startsWith('JADWAL_KONSELING:')) {
+        content = `Tolong jadwalkan sesi bimbingan konseling siswa ini ke sistem BK: ${content.slice(17)}`;
+      } else if (content.startsWith('BUAT_PENGUMUMAN:')) {
+        content = `Tolong terbitkan pengumuman resmi ini ke sistem: ${content.slice(16)}`;
+      } else if (content.startsWith('VERIFIKASI_JURNAL:')) {
+        content = `Tolong verifikasi dan beri paraf jurnal magang siswa ini ke sistem: ${content.slice(18)}`;
+      }
 
       // Check 5-prompt limit before processing
       if (promptCount >= PUBLIC_PROMPT_LIMIT) {
@@ -561,7 +682,7 @@ export function AleshaWidget() {
       setThinking(true);
       if (viaVoice) setVoiceState('thinking');
 
-      const aleshaApiBase = (import.meta as any).env?.VITE_ALESHA_API_URL || 'http://localhost:8000';
+      const aleshaApiBase = getAleshaApiBase();
 
       try {
         const payload = {
@@ -703,7 +824,7 @@ export function AleshaWidget() {
       <AleshaKioskModal
         isOpen={isKioskOpen}
         onClose={() => setIsKioskOpen(false)}
-        kioskUrl={(import.meta as any).env?.VITE_ALESHA_KIOSK_URL || 'http://localhost:3000/kiosk-public'}
+        kioskUrl={getAleshaKioskUrl()}
         activeMenu={isPortal ? 'Portal Materi Publik' : 'Halaman Pengenalan SINAU'}
         currentUser={
           user || {
@@ -712,6 +833,26 @@ export function AleshaWidget() {
             unit: isPortal ? 'Portal Publik SINAU' : 'Landing Page SINAU',
           }
         }
+      />
+
+      {/* Modal Konfirmasi Write ke Database Sistem */}
+      <AleshaActionWriteModal
+        isOpen={actionWriteModal.isOpen}
+        onClose={() => setActionWriteModal((prev) => ({ ...prev, isOpen: false }))}
+        actionTag={actionWriteModal.actionTag}
+        sourceMessage={actionWriteModal.sourceMessage}
+        effectiveRole={user?.roles?.[0] || (user as any)?.role || activeRole || 'guru'}
+        currentUserId={user?.id}
+        onSaved={(savedSummary) => {
+          setMessages((p) => [
+            ...p,
+            {
+              id: String(Date.now()),
+              role: 'assistant',
+              content: `Data telah berhasil disimpan dan tercatat ke database sistem: ${savedSummary}`,
+            },
+          ]);
+        }}
       />
 
       {/* Floating Trigger Button in bottom-right corner */}
@@ -884,11 +1025,15 @@ export function AleshaWidget() {
             <div className="flex-1 space-y-3.5 overflow-y-auto px-4 py-4">
               {messages.map((m, idx) => {
                 const isLast = idx === messages.length - 1;
+                const { cleanContent, actions } = m.role === 'assistant'
+                  ? extractActionButtons(m.content)
+                  : { cleanContent: m.content, actions: [] };
+
                 return (
                   <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                     <div className={cx(m.role === 'assistant' ? 'max-w-[94%] flex items-start gap-2.5' : 'max-w-[88%]')}>
                       {m.role === 'assistant' && <Face className="mt-0.5 h-7 w-7 shrink-0" />}
-                      <div>
+                      <div className="max-w-[88%]">
                         <div
                           className={cx(
                             'rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-xs',
@@ -897,8 +1042,25 @@ export function AleshaWidget() {
                               : 'rounded-bl-md bg-surface-2 text-ink border border-line/60'
                           )}
                         >
-                          <RichText text={m.content} onAction={(prompt) => { if (!thinking && !isLimitReached) { void send(prompt); } }} />
+                          <RichText text={cleanContent} onAction={(prompt) => handleWidgetAction(prompt, m.content)} />
                         </div>
+
+                        {/* Action Buttons rendered cleanly below assistant bubble */}
+                        {actions.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2.5 pt-1">
+                            {actions.map((act, actIdx) => (
+                              <button
+                                key={actIdx}
+                                type="button"
+                                onClick={() => handleWidgetAction(act.prompt, m.content)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
+                              >
+                                <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                                <span>{act.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Interactive Link Chip to /portal if assistant recommended it while on /welcome */}
                         {m.showPortalLink && (
@@ -1036,8 +1198,8 @@ export function AleshaWidget() {
                     listeningInput
                       ? 'Mendengarkan ucapan Anda…'
                       : isPortal
-                      ? 'Tanyakan materi di portal…'
-                      : 'Tanyakan fitur & layanan SINAU…'
+                        ? 'Tanyakan materi di portal…'
+                        : 'Tanyakan fitur & layanan SINAU…'
                   }
                   className="input h-10 min-w-0 flex-1 rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />

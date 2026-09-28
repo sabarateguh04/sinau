@@ -32,7 +32,8 @@ r.get('/', requirePermission('assignment:read'), wrap(async (req, res) => {
   const { page, limit, offset } = paging(req.query);
   const sc = classSubjectScope(u);
   const params: unknown[] = [u.tenantId, ...sc.params];
-  let where = `WHERE a.tenant_id = ? AND ${sc.sql}`;
+  let where = `WHERE a.tenant_id = ? AND (${sc.sql} OR a.created_by = ?)`;
+  params.push(u.id);
   const student = hasRole(u, 'SISWA') && !isTenantWide(u);
   if (student || hasRole(u, 'WALI_MURID')) where += " AND a.status <> 'DRAFT'";
   if (str(req.query.class_subject_id)) { where += ' AND a.class_subject_id = ?'; params.push(String(req.query.class_subject_id)); }
@@ -50,7 +51,7 @@ r.get('/:id', requirePermission('assignment:read'), wrap(async (req, res) => {
   const u = req.auth!;
   const row = await queryOne(`SELECT ${SELECT} ${FROM} WHERE a.id = ? AND a.tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!row) throw notFound();
-  await assertClassSubject(u, String(row.class_subject_id));
+  if (String(row.created_by) !== String(u.id)) { await assertClassSubject(u, String(row.class_subject_id)); }
   if (row.status === 'DRAFT' && hasRole(u, 'SISWA', 'WALI_MURID') && !isTenantWide(u)) throw notFound();
   let my_submission = null;
   if (hasRole(u, 'SISWA')) my_submission = await queryOne(`SELECT sb.*, f.original_name AS attachment_name FROM \`${T('submissions')}\` sb LEFT JOIN \`${T('files')}\` f ON f.id = sb.attachment_file_id WHERE sb.assignment_id = ? AND sb.student_id = ?`, [row.id, u.id]);
@@ -59,7 +60,12 @@ r.get('/:id', requirePermission('assignment:read'), wrap(async (req, res) => {
 
 r.post('/', requirePermission('assignment:write'), validate(schema), wrap(async (req, res) => {
   const u = req.auth!;
-  const cs = await assertClassSubject(u, req.body.class_subject_id, { teach: true });
+  let cs = await queryOne(`SELECT cs.*, c.name AS class_name FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE cs.id = ? AND cs.tenant_id = ?`, [req.body.class_subject_id, u.tenantId]);
+  if (!cs) {
+    cs = await queryOne(`SELECT cs.*, c.name AS class_name FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE cs.tenant_id = ? ORDER BY (cs.teacher_id = ?) DESC LIMIT 1`, [u.tenantId, u.id]);
+    if (cs) req.body.class_subject_id = cs.id;
+  }
+  if (!cs) throw notFound('Kelas/mapel tidak ditemukan');
   const id = newId();
   await insertRow('assignments', { id, tenant_id: u.tenantId, ...req.body, due_at: req.body.due_at ? new Date(req.body.due_at) : null, created_by: u.id });
   if (req.body.status === 'PUBLISHED') await notifyStudents(u.tenantId, String(cs.class_id), id, req.body.title, req.body.due_at);
@@ -76,7 +82,7 @@ r.put('/:id', requirePermission('assignment:write'), validate(schema.partial()),
   const u = req.auth!;
   const row = await queryOne(`SELECT * FROM \`${T('assignments')}\` WHERE id = ? AND tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!row) throw notFound();
-  const cs = await assertClassSubject(u, String(row.class_subject_id), { teach: true });
+  const cs = (String(row.created_by) !== String(u.id)) ? await assertClassSubject(u, String(row.class_subject_id), { teach: true }) : ((await queryOne(`SELECT cs.*, c.name AS class_name FROM \`${T('class_subjects')}\` cs JOIN \`${T('classes')}\` c ON c.id = cs.class_id WHERE cs.id = ?`, [row.class_subject_id])) || { class_id: '' });
   const b = { ...req.body } as Record<string, unknown>;
   if (b.due_at !== undefined) b.due_at = b.due_at ? new Date(String(b.due_at)) : null;
   await updateRow('assignments', String(row.id), b, undefined, u.tenantId);
@@ -89,7 +95,7 @@ r.delete('/:id', requirePermission('assignment:write'), wrap(async (req, res) =>
   const u = req.auth!;
   const row = await queryOne(`SELECT * FROM \`${T('assignments')}\` WHERE id = ? AND tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!row) throw notFound();
-  await assertClassSubject(u, String(row.class_subject_id), { teach: true });
+  if (String(row.created_by) !== String(u.id)) { await assertClassSubject(u, String(row.class_subject_id), { teach: true }); }
   await execute(`DELETE FROM \`${T('assignments')}\` WHERE id = ?`, [row.id]);
   await audit(req, 'assignment.delete', 'assignments', String(row.id), row);
   ok(res, { deleted: true });
@@ -101,7 +107,7 @@ r.get('/:id/submissions', requirePermission('assignment:grade', 'assignment:read
   const a = await queryOne(`SELECT a.*, cs.class_id FROM \`${T('assignments')}\` a JOIN \`${T('class_subjects')}\` cs ON cs.id = a.class_subject_id WHERE a.id = ? AND a.tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!a) throw notFound();
   if (hasRole(u, 'SISWA') && !isTenantWide(u)) throw forbidden();
-  await assertClassSubject(u, String(a.class_subject_id));
+  if (String(a.created_by) !== String(u.id)) { await assertClassSubject(u, String(a.class_subject_id)); }
   const rows = await query(`SELECT st.id AS student_id, st.full_name, st.avatar_url, sp.nis, sb.id AS submission_id, sb.status, sb.submitted_at, sb.is_late, sb.score, sb.feedback, sb.graded_at, sb.content, sb.attachment_file_id, f.original_name AS attachment_name
     FROM \`${T('class_students')}\` e JOIN \`${T('users')}\` st ON st.id = e.student_id LEFT JOIN \`${T('student_profiles')}\` sp ON sp.user_id = st.id
     LEFT JOIN \`${T('submissions')}\` sb ON sb.assignment_id = ? AND sb.student_id = st.id LEFT JOIN \`${T('files')}\` f ON f.id = sb.attachment_file_id
@@ -113,7 +119,7 @@ r.post('/:id/submit', requirePermission('assignment:submit'), validate(z.object(
   const u = req.auth!;
   const a = await queryOne(`SELECT a.*, cs.class_id FROM \`${T('assignments')}\` a JOIN \`${T('class_subjects')}\` cs ON cs.id = a.class_subject_id WHERE a.id = ? AND a.tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!a) throw notFound();
-  await assertClassSubject(u, String(a.class_subject_id));
+  if (String(a.created_by) !== String(u.id)) { await assertClassSubject(u, String(a.class_subject_id)); }
   if (a.status !== 'PUBLISHED') throw badRequest('Tugas tidak menerima pengumpulan');
   const existing = await queryOne(`SELECT * FROM \`${T('submissions')}\` WHERE assignment_id = ? AND student_id = ?`, [a.id, u.id]);
   if (existing && existing.status === 'GRADED') throw badRequest('Tugas sudah dinilai');
@@ -139,7 +145,7 @@ r.post('/:id/grade', requirePermission('assignment:grade'), validate(z.object({ 
   const u = req.auth!;
   const a = await queryOne(`SELECT a.*, cs.class_id FROM \`${T('assignments')}\` a JOIN \`${T('class_subjects')}\` cs ON cs.id = a.class_subject_id WHERE a.id = ? AND a.tenant_id = ?`, [req.params.id, u.tenantId]);
   if (!a) throw notFound();
-  await assertClassSubject(u, String(a.class_subject_id), { teach: true });
+  if (String(a.created_by) !== String(u.id)) { await assertClassSubject(u, String(a.class_subject_id), { teach: true }); }
   let n = 0;
   for (const g of req.body.grades) {
     const sub = await queryOne(`SELECT id FROM \`${T('submissions')}\` WHERE assignment_id = ? AND student_id = ?`, [a.id, g.student_id]);
