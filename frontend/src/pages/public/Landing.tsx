@@ -47,7 +47,7 @@ export default function Landing() {
             <div className="mt-7 flex flex-wrap gap-3"><Link to="/login"><Button size="lg" icon={<ArrowRight className="h-4 w-4" />}>Masuk</Button></Link><Link to="/portal"><Button size="lg" variant="outline" icon={<BookOpen className="h-4 w-4" />}>Jelajahi materi publik</Button></Link></div>
             {stats && <div className="mt-8 flex gap-8 text-sm text-ink-2"><span><b className="text-xl text-ink">{stats.tenants}</b> lembaga</span><span><b className="text-xl text-ink">{Number(stats.students).toLocaleString('id-ID')}</b> siswa</span><span><b className="text-xl text-ink">{Number(stats.materials).toLocaleString('id-ID')}</b> materi</span></div>}
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative isolate"><div className="orbit -z-10" /><AleshaShowcase /></motion.div>
+          <div className="alesha-yield"><motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative isolate"><div className="orbit -z-10" /><IntelligenceLayer /></motion.div></div>
         </div>
       </section>
 
@@ -125,21 +125,65 @@ export default function Landing() {
   );
 }
 
-/** Illustrative Alesha conversation (student persona) for the hero. */
-function AleshaShowcase() {
+/** Hero visual: the intelligence layer — module data read by Alesha, returned as a next step per role. */
+const SOURCES = [
+  { icon: BookOpen, t: 'LMS', d: '1.284 aktivitas' },
+  { icon: ClipboardCheck, t: 'Ujian', d: '96 sesi' },
+  { icon: CalendarCheck, t: 'Presensi', d: '31 hari' },
+  { icon: BadgeCheck, t: 'Nilai', d: '7 mapel' },
+];
+const OUTPUTS = [
+  { icon: GraduationCap, role: 'Pembelajar', text: 'Ulang Model OSI dari dasar — 3 soal kontras sudah disiapkan.' },
+  { icon: PenTool, role: 'Pendidik', text: '68% kelas tertahan di pecahan senilai — draf remedial siap disunting.' },
+  { icon: Building2, role: 'Institusi', text: 'Penyerapan X RPL 1 turun 9% bulan ini — 2 kelas perlu ditinjau.' },
+];
+
+function IntelligenceLayer() {
   return (
     <div className="card overflow-hidden shadow-xl">
-      <div className="flex items-center gap-3 bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 px-4 py-3 text-white"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20"><Sparkles className="h-4 w-4" /></span><div><div className="text-sm font-bold">Alesha</div><div className="text-[11px] text-white/80">Tutor · asisten mengajar · analis belajar</div></div></div>
-      <div className="space-y-3 p-4 text-sm">
-        <Bubble me>Konsep mana yang masih lemah?</Bubble>
-        <Bubble delay={0.5}>Dari 24 soal kuis terakhir: <b>Model OSI 7 layer</b> 25% dan <b>Subnetting IPv4</b> 25%. Pola kesalahanmu: mengira pengalamatan ada di lapisan fisik.<br /><span className="text-ink-3">Langkah berikutnya: ulang OSI dari dasar, lalu 3 soal kontras.</span></Bubble>
-        <Bubble me delay={1.1}>Quiz me!</Bubble>
-        <Bubble delay={1.6}><b>Jaringan · Model OSI</b><br />Lapisan mana yang menangani pengalamatan logis?<br /><span className="mt-1 flex flex-wrap gap-1.5">{['A. Fisik', 'B. Data link', 'C. Network', 'D. Transport'].map((o) => <span key={o} className="rounded-full border border-brand-200 px-2 py-0.5 text-xs text-brand-700 dark:border-brand-800">{o}</span>)}</span></Bubble>
-        <p className="pt-1 text-[11px] text-ink-3">Sumber: bank soal & hasil kuis lembaga · Socratic otomatis saat ujian berlangsung</p>
+      <div className="flex items-center gap-3 bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 px-4 py-3 text-white">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20"><BrainCircuit className="h-4 w-4" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-bold">Lapisan intelijen SINAU</div>
+          <div className="text-[11px] text-white/80">Satu data belajar · dibaca lintas modul</div>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
+          <motion.span animate={{ opacity: [1, 0.25, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="block h-1.5 w-1.5 rounded-full bg-emerald-300" />Aktif
+        </span>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="grid grid-cols-2 gap-2">
+          {SOURCES.map((s, i) => (
+            <motion.div key={s.t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 + i * 0.09 }} className="flex items-center gap-2.5 rounded-xl bg-surface-2 px-3 py-2">
+              <s.icon className="h-4 w-4 shrink-0 text-brand-700 dark:text-brand-300" />
+              <div className="min-w-0"><div className="truncate text-xs font-semibold">{s.t}</div><div className="truncate text-[11px] text-ink-3">{s.d}</div></div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 px-1" aria-hidden>
+          <span className="h-px flex-1 bg-line" />
+          {[0, 1, 2].map((i) => <motion.span key={i} animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.22 }} className="block h-1.5 w-1.5 rounded-full bg-accent-500" />)}
+          <span className="h-px flex-1 bg-line" />
+        </div>
+
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7 }} className="rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-2.5 dark:border-brand-800 dark:bg-brand-900/30">
+          <div className="flex items-center gap-2 text-sm font-bold text-brand-800 dark:text-brand-200"><Sparkles className="h-4 w-4" />Alesha menganalisis</div>
+          <p className="mt-0.5 text-[11px] text-ink-2">24 soal dinilai · 3 miskonsepsi terdeteksi · bukti disebut di setiap angka</p>
+        </motion.div>
+
+        <div className="space-y-2">
+          {OUTPUTS.map((o, i) => (
+            <motion.div key={o.role} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9 + i * 0.14 }} className="flex gap-2.5 text-sm">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-500/15 text-accent-600 dark:text-accent-400"><o.icon className="h-3.5 w-3.5" /></span>
+              <div className="min-w-0"><div className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">{o.role}</div><p className="text-[13px] leading-snug text-ink-2">{o.text}</p></div>
+            </motion.div>
+          ))}
+        </div>
+
+        <p className="pt-0.5 text-[11px] text-ink-3">Contoh keluaran · Rekomendasi selalu bisa disunting atau ditolak oleh manusia.</p>
       </div>
     </div>
   );
-}
-function Bubble({ children, me, delay = 0 }: { children: React.ReactNode; me?: boolean; delay?: number }) {
-  return <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className={me ? 'ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-brand-700 px-3.5 py-2 text-white' : 'max-w-[92%] rounded-2xl rounded-bl-md bg-surface-2 px-3.5 py-2 leading-relaxed'}>{children}</motion.div>;
 }

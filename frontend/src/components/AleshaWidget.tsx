@@ -635,6 +635,13 @@ export function AleshaWidget() {
     stopSpeakRef.current();
   }, []);
 
+  // Marks the document while the panel is open so page visuals it would cover
+  // (the /welcome hero card) can step aside instead of peeking out behind it.
+  useEffect(() => {
+    document.body.classList.toggle('alesha-open', open);
+    return () => document.body.classList.remove('alesha-open');
+  }, [open]);
+
   // Reset or adjust welcome message when pathname changes between welcome and portal
   useEffect(() => {
     setMessages((prev) => {
@@ -919,33 +926,33 @@ export function AleshaWidget() {
             className={cx(
               'fixed inset-0 z-40 flex flex-col overflow-hidden bg-surface shadow-2xl transition-all duration-300 sm:inset-auto sm:right-6 sm:rounded-3xl sm:border sm:border-line print:hidden',
               isExpanded
-                ? 'sm:bottom-8 sm:h-[820px] sm:max-h-[calc(100vh-3rem)] sm:w-[720px] md:w-[820px]'
-                : 'sm:bottom-20 sm:h-[680px] sm:max-h-[calc(100vh-5rem)] sm:w-[480px] md:w-[530px]'
+                ? 'sm:bottom-8 sm:h-[620px] sm:max-h-[calc(100vh-4rem)] sm:w-[580px] md:w-[660px]'
+                : 'sm:bottom-20 sm:h-[460px] sm:max-h-[calc(100vh-8rem)] sm:w-[370px] md:w-[400px]'
             )}
           >
             {/* Header: Brand Gradient matching /welcome CTA & Hero */}
-            <header className="flex items-center gap-3 bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 px-4 py-3.5 text-white">
-              <Face className="h-10 w-10 shrink-0 ring-2 ring-white/60" />
+            <header className="flex items-center gap-2.5 bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 px-3.5 py-2 text-white">
+              <Face className="h-8 w-8 shrink-0 ring-2 ring-white/60" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold leading-tight">{ALESHA_NAME}</p>
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-xs">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[13px] font-bold leading-tight">{ALESHA_NAME}</p>
+                  <span className="rounded-full bg-white/20 px-1.5 py-px text-[9px] font-semibold text-white/90 backdrop-blur-xs">
                     Pengunjung Umum
                   </span>
                 </div>
-                <p className="text-[11px] text-white/85 truncate mt-0.5">
+                <p className="text-[10px] leading-tight text-white/85 truncate">
                   {isPortal ? 'Pemandu Portal Materi Publik' : 'Panduan Fitur & Layanan SINAU'}
                 </p>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={reset}
                   title="Percakapan baru"
                   className="rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
                 >
-                  <RotateCcw className="h-4 w-4" />
+                  <RotateCcw className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -953,7 +960,7 @@ export function AleshaWidget() {
                   title={isExpanded ? 'Perkecil modal' : 'Perbesar modal'}
                   className="rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
                 >
-                  {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                 </button>
                 <button
                   type="button"
@@ -961,13 +968,13 @@ export function AleshaWidget() {
                   title="Tutup"
                   className="rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white transition cursor-pointer"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </header>
 
             {/* Mode Switcher: Chat AI vs 3D Avatar Kiosk */}
-            <div className="grid grid-cols-2 gap-1.5 border-b border-line bg-surface-2 p-1.5">
+            <div className="grid grid-cols-2 gap-1 border-b border-line bg-surface-2 p-1">
               <button
                 type="button"
                 onClick={() => setMode('chat')}
@@ -996,7 +1003,7 @@ export function AleshaWidget() {
             </div>
 
             {/* Sub-header Context Banner with Public Quota Tracker */}
-            <div className="flex items-center justify-between border-b border-line bg-brand-50/60 dark:bg-brand-950/20 px-3.5 py-1.5 text-[11px] text-brand-800 dark:text-brand-300">
+            <div className="flex items-center justify-between border-b border-line bg-brand-50/60 dark:bg-brand-950/20 px-3.5 py-1 text-[10px] text-brand-800 dark:text-brand-300">
               <span className="flex items-center gap-1.5 font-medium truncate">
                 {isPortal ? (
                   <>
