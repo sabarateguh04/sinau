@@ -616,7 +616,12 @@ export function AleshaWidget() {
 
   useEffect(() => {
     if (open && mode === 'chat') {
-      endRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+      // The welcome message is taller than the panel; scrolling to the end on
+      // open would cut off its greeting, so only follow along once a real
+      // exchange has started.
+      if (messages.length > 1 || thinking) {
+        endRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+      }
       if (!isLimitReached) {
         inputRef.current?.focus();
       }
@@ -634,13 +639,6 @@ export function AleshaWidget() {
     listenerRef.current?.stop();
     stopSpeakRef.current();
   }, []);
-
-  // Marks the document while the panel is open so page visuals it would cover
-  // (the /welcome hero card) can step aside instead of peeking out behind it.
-  useEffect(() => {
-    document.body.classList.toggle('alesha-open', open);
-    return () => document.body.classList.remove('alesha-open');
-  }, [open]);
 
   // Reset or adjust welcome message when pathname changes between welcome and portal
   useEffect(() => {
