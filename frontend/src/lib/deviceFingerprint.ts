@@ -234,6 +234,7 @@ export interface HardwareProfileSignals {
   screenRes: string;
   cpuCores: number;
   timezone: string;
+  rawSignature: string;
   clusterId: string;
 }
 
@@ -248,9 +249,14 @@ export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
     const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
     if (gl) {
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      const vendor = dbg ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : '';
-      const renderer = dbg ? (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
-      gpuRenderer = normalizeGpu(renderer, vendor);
+      const vendor = dbg ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : (gl.getParameter(gl.VENDOR) || '');
+      const renderer = dbg ? (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : (gl.getParameter(gl.RENDERER) || '');
+      if (renderer || vendor) {
+        const norm = normalizeGpu(renderer, vendor);
+        if (norm && norm !== 'Standard GPU') {
+          gpuRenderer = norm;
+        }
+      }
     }
   } catch (_) {}
 
@@ -258,8 +264,10 @@ export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
   const cpuCores = getCpuCores();
   const timezone = getTimezone();
 
-  // Formula: Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
-  const rawSignature = gpuRenderer + '|' + screenRes + '|' + String(cpuCores) + '|' + timezone;
+  // Formula: Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + Timezone)
+  // Omitting raw CPU core count ensures 100% bit-for-bit cross-browser identity
+  // between Chrome (16 cores) and Firefox (privacy capped to 8 cores).
+  const rawSignature = gpuRenderer + '|' + screenRes + '|' + timezone;
   const hash = await hashString(rawSignature);
   const clusterId = 'hdp_' + hash;
 
@@ -268,6 +276,7 @@ export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
     screenRes,
     cpuCores,
     timezone,
+    rawSignature,
     clusterId,
   };
 }

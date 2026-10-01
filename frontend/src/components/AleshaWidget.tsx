@@ -11,7 +11,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { getDeviceId } from '../lib/deviceFingerprint';
+import { getDeviceId, getHardwareSignals } from '../lib/deviceFingerprint';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AudioLines,
@@ -594,9 +594,11 @@ export function AleshaWidget() {
     try {
       const aleshaApiBase = getAleshaApiBase();
       const devId = await getDeviceId();
-      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat&device_id=${encodeURIComponent(devId)}`, {
+      const signals = await getHardwareSignals();
+      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat&device_id=${encodeURIComponent(devId)}&gpu=${encodeURIComponent(signals.gpuRenderer)}&scr=${encodeURIComponent(signals.screenRes)}&tz=${encodeURIComponent(signals.timezone)}&sig=${encodeURIComponent(signals.rawSignature)}`, {
         headers: {
           'X-Device-Id': devId,
+          'X-Raw-Signature': signals.rawSignature,
         },
       });
       if (res.ok) {
@@ -708,10 +710,15 @@ export function AleshaWidget() {
 
       try {
         const devId = await getDeviceId();
+        const signals = await getHardwareSignals();
         const payload = {
           message: content,
           mode: 'chat',
           device_id: devId,
+          gpu: signals.gpuRenderer,
+          scr: signals.screenRes,
+          tz: signals.timezone,
+          raw_signature: signals.rawSignature,
           user_role: activeRole || user?.roles?.[0] || 'user_umum',
           target_role: 'user_umum',
           current_page: loc.pathname,
@@ -724,6 +731,7 @@ export function AleshaWidget() {
           headers: {
             'Content-Type': 'application/json',
             'X-Device-Id': devId,
+            'X-Raw-Signature': signals.rawSignature,
           },
           body: JSON.stringify(payload),
         });
