@@ -38,7 +38,7 @@ import { useAuth } from '@/store/auth';
 import { ALESHA_NAME, ALESHA_STORAGE_KEY, hasBrowserSpeech, hasBrowserTts, listen, speak, getAleshaApiBase, getAleshaKioskUrl, type Listener } from '@/lib/alesha';
 import { cx } from '@/components/ui';
 import { AleshaKioskModal } from './AleshaKioskModal';
-import { AleshaAbsorptionHeatmapViewer, AleshaMisconceptionsViewer, AleshaActionWriteModal, extractActionButtons } from './AiChatSinauModule';
+import { AleshaAbsorptionHeatmapViewer, AleshaMisconceptionsViewer, extractActionButtons } from './AiChatSinauModule';
 
 type Mode = 'chat' | 'voice';
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -55,7 +55,55 @@ interface Msg {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-const PUBLIC_PROMPT_LIMIT = 5;
+const PUBLIC_PROMPT_LIMIT = 10;
+
+export const DEFAULT_PORTAL_READ_SUGGESTIONS = [
+  'Materi apa saja yang tersedia di portal ini?',
+  'Apakah materi di portal ini gratis diakses?',
+  'Bagaimana cara melihat silabus materi?',
+  'Ada materi untuk SMK jurusan RPL atau TKJ?',
+];
+
+export const DEFAULT_WELCOME_READ_SUGGESTIONS = [
+  'Apa saja fitur utama di SINAU?',
+  'Bagaimana alur pembelajaran di SINAU?',
+  'Bagaimana cara mendaftar ke SINAU?',
+  'Apa keunggulan AI tutor Alesha?',
+];
+
+export function isWriteRequest(rawText: string): boolean {
+  if (!rawText) return false;
+  const t = rawText.trim().toLowerCase();
+
+  if (
+    t.startsWith('simpan_soal:') ||
+    t.startsWith('buat_kuis:') ||
+    t.startsWith('buat_tugas:') ||
+    t.startsWith('catat_pelanggaran:') ||
+    t.startsWith('jadwal_konseling:') ||
+    t.startsWith('buat_pengumuman:') ||
+    t.startsWith('verifikasi_jurnal:') ||
+    t.startsWith('simpan_modul:') ||
+    t.startsWith('simpan_materi:')
+  ) {
+    return true;
+  }
+
+  const writeKeywords = [
+    /\b(ubah|edit|ganti|perbarui|update|hapus|delete|hilangkan)\s+(data|materi|nilai|soal|kuis|tugas|jadwal|siswa|guru|user|pengguna|nama|status)/i,
+    /\b(tambah|tambahkan|masukkan|input|create|buat|buatkan|bikin|simpan|terbitkan)\s+(ke\s+sistem|ke\s+database|kuis|soal|tugas|remedial|materi\s+baru|jadwal|pelanggaran|pengumuman|jurnal|rpp)/i,
+    /\b(simpan\s+ke\s+bank\s+soal|terbitkan\s+kuis|terbitkan\s+tugas|catat\s+ke\s+sistem|simpan\s+ke\s+sistem)\b/i,
+    /\b(buat|buatkan|rancang|bikin)\s+(soal|kuis|tugas|rpp|remedial|rubrik)\b/i,
+    /\b(simpan|simpanlah|masukkan|tambahkan)\s+(soal|kuis|tugas|nilai|materi)\b/i,
+  ];
+
+  return writeKeywords.some((regex) => regex.test(t));
+}
+
+const PUBLIC_WRITE_NOT_ALLOWED_NOTICE =
+  'Mohon maaf, fitur penambahan, pengubahan, atau penyimpanan data ke dalam sistem (seperti pembuatan kuis, tugas, soal remedial, RPP, dan modifikasi data) hanya tersedia untuk **Pengajar dan Admin** yang telah masuk (login) ke dalam sistem SINAU.\n\n' +
+  'Sebagai pengunjung umum di halaman Portal/Welcome, Anda memiliki akses penuh untuk **melihat, membaca, dan mempelajari seluruh materi terbuka** yang ada.\n\n' +
+  'Silakan masuk (login) jika Anda ingin mengelola atau menyimpan data pembelajaran.';
 
 const getWelcomeMsg = (pathname: string, userName?: string | null): Msg => {
   const isPortal = pathname.startsWith('/portal');
@@ -105,19 +153,8 @@ function parseInline(text: string, onAction?: (prompt: string) => void): React.R
   return parts.map((part, index) => {
     const actionMatch = part.match(/^\[action:([^\|\]]+)(?:\|([^\]]*))?\]$/);
     if (actionMatch) {
-      const label = actionMatch[1].trim();
-      const prompt = (actionMatch[2] || label).trim();
-      return (
-        <button
-          key={index}
-          type="button"
-          onClick={() => onAction && onAction(prompt)}
-          className="my-1 mr-1.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-          <span>{label}</span>
-        </button>
-      );
+      // In read-only visitor mode on /welcome and /portal, do not render action buttons
+      return null;
     }
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
@@ -275,26 +312,9 @@ function RichText({ text, onAction }: { text: string; onAction?: (prompt: string
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
 
-    // Action button on single line: handled via extractActionButtons
+    // Action button on single line: do not render in read-only public mode
     if (trimmed.startsWith('[action:')) {
-      const extracted = extractActionButtons(trimmed);
-      if (extracted.actions.length > 0) {
-        extracted.actions.forEach((act, actIdx) => {
-          elements.push(
-            <div key={`act-${i}-${actIdx}`} className="my-2">
-              <button
-                type="button"
-                onClick={() => onAction && onAction(act.prompt)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-                <span>{act.label}</span>
-              </button>
-            </div>
-          );
-        });
-        continue;
-      }
+      continue;
     }
 
     // Code block ```
@@ -344,7 +364,7 @@ function RichText({ text, onAction }: { text: string; onAction?: (prompt: string
               <AleshaAbsorptionHeatmapViewer
                 key={`heatmap-${i}`}
                 data={heatmapData}
-                onAction={(prompt) => onAction && onAction(prompt)}
+                onAction={undefined}
               />
             );
           } catch {
@@ -361,7 +381,7 @@ function RichText({ text, onAction }: { text: string; onAction?: (prompt: string
               <AleshaMisconceptionsViewer
                 key={`misc-${i}`}
                 data={miscData}
-                onAction={(prompt) => onAction && onAction(prompt)}
+                onAction={undefined}
               />
             );
           } catch {
@@ -512,28 +532,18 @@ export function AleshaWidget() {
   const reduce = useReducedMotion();
 
   const [open, setOpen] = useState(false);
-  const [actionWriteModal, setActionWriteModal] = useState<{
-    isOpen: boolean;
-    actionTag: string;
-    sourceMessage?: string;
-  }>({
-    isOpen: false,
-    actionTag: '',
-    sourceMessage: ''
-  });
-
-  const handleWidgetAction = (prompt: string, sourceMessage?: string) => {
-    const isWriteAction =
-      prompt.startsWith('SIMPAN_SOAL:') ||
-      prompt.startsWith('BUAT_KUIS:') ||
-      prompt.startsWith('BUAT_TUGAS:') ||
-      prompt.startsWith('CATAT_PELANGGARAN:') ||
-      prompt.startsWith('JADWAL_KONSELING:') ||
-      prompt.startsWith('BUAT_PENGUMUMAN:') ||
-      prompt.startsWith('VERIFIKASI_JURNAL:');
-
-    if (isWriteAction) {
-      setActionWriteModal({ isOpen: true, actionTag: prompt, sourceMessage: sourceMessage || '' });
+  const handleWidgetAction = (prompt: string, _sourceMessage?: string) => {
+    if (isWriteRequest(prompt)) {
+      setMessages((p) => [
+        ...p,
+        {
+          id: uid(),
+          role: 'assistant',
+          content: PUBLIC_WRITE_NOT_ALLOWED_NOTICE,
+          showLoginLink: true,
+          suggestions: isPortal ? DEFAULT_PORTAL_READ_SUGGESTIONS.slice(0, 3) : DEFAULT_WELCOME_READ_SUGGESTIONS.slice(0, 3),
+        },
+      ]);
     } else if (!thinking && !isLimitReached) {
       void send(prompt);
     }
@@ -604,7 +614,7 @@ export function AleshaWidget() {
     syncDeviceQuota();
   }, [syncDeviceQuota]);
 
-  // Quotas are strictly separate: Chatbot mode (5/5) and Avatar Voice mode (5/5)
+  // Quotas are strictly separate: Chatbot mode (10/10) and Avatar Voice mode (10/10)
   // Avatar Kiosk events do NOT consume Chatbot quota
   useEffect(() => {
     const handleKioskEvent = (_event: MessageEvent) => {
@@ -655,20 +665,22 @@ export function AleshaWidget() {
       let content = text.trim();
       if (!content || thinking) return;
 
-      if (content.startsWith('SIMPAN_SOAL:')) {
-        content = `Tolong simpan butir soal ini ke bank soal CBT sistem: ${content.slice(12)}`;
-      } else if (content.startsWith('BUAT_KUIS:')) {
-        content = `Tolong terbitkan kuis CBT ini ke sistem: ${content.slice(10)}`;
-      } else if (content.startsWith('BUAT_TUGAS:')) {
-        content = `Tolong terbitkan tugas ini ke sistem: ${content.slice(11)}`;
-      } else if (content.startsWith('CATAT_PELANGGARAN:')) {
-        content = `Tolong catat pelanggaran tata tertib siswa ini ke sistem BK: ${content.slice(18)}`;
-      } else if (content.startsWith('JADWAL_KONSELING:')) {
-        content = `Tolong jadwalkan sesi bimbingan konseling siswa ini ke sistem BK: ${content.slice(17)}`;
-      } else if (content.startsWith('BUAT_PENGUMUMAN:')) {
-        content = `Tolong terbitkan pengumuman resmi ini ke sistem: ${content.slice(16)}`;
-      } else if (content.startsWith('VERIFIKASI_JURNAL:')) {
-        content = `Tolong verifikasi dan beri paraf jurnal magang siswa ini ke sistem: ${content.slice(18)}`;
+      // Intercept write / modification requests on public /welcome and /portal pages
+      if (isWriteRequest(content)) {
+        setInput('');
+        const userMsgId = uid();
+        setMessages((p) => [
+          ...p,
+          { id: userMsgId, role: 'user', content },
+          {
+            id: uid(),
+            role: 'assistant',
+            content: PUBLIC_WRITE_NOT_ALLOWED_NOTICE,
+            showLoginLink: true,
+            suggestions: isPortal ? DEFAULT_PORTAL_READ_SUGGESTIONS.slice(0, 3) : DEFAULT_WELCOME_READ_SUGGESTIONS.slice(0, 3),
+          },
+        ]);
+        return;
       }
 
       // Check 5-prompt limit before processing
@@ -679,7 +691,7 @@ export function AleshaWidget() {
             id: uid(),
             role: 'assistant',
             content:
-              'Anda telah mencapai batas **5 pertanyaan** untuk pengunjung umum di halaman ini.\n\nSilakan **masuk (login)** ke akun SINAU Anda agar dapat melanjutkan interaksi dan menikmati seluruh kecerdasan Alesha AI tanpa batasan kuota.',
+              'Anda telah mencapai batas **10 pertanyaan** untuk pengunjung umum di halaman ini.\n\nSilakan **masuk (login)** ke akun SINAU Anda agar dapat melanjutkan interaksi dan menikmati seluruh kecerdasan Alesha AI tanpa batasan kuota.',
             showLoginLink: true,
           },
         ]);
@@ -722,13 +734,11 @@ export function AleshaWidget() {
 
         const data = await res.json();
         let reply = data.reply || data.response || data.message || 'Informasi sedang diproses.';
-        const suggestions = data.suggestions || (isPortal ? [
-          'Bagaimana cara melihat isi materi?',
-          'Apakah ada materi pelajaran lainnya?',
-        ] : [
-          'Bagaimana cara mendaftar ke SINAU?',
-          'Apa itu fitur AI tutor Alesha?',
-        ]);
+        const rawSuggestions = Array.isArray(data.suggestions) && data.suggestions.length > 0
+          ? data.suggestions.filter((s: string) => !isWriteRequest(s))
+          : [];
+        const fallbackSuggestions = isPortal ? DEFAULT_PORTAL_READ_SUGGESTIONS : DEFAULT_WELCOME_READ_SUGGESTIONS;
+        const suggestions = rawSuggestions.length > 0 ? rawSuggestions.slice(0, 4) : fallbackSuggestions;
 
         const nextCount = typeof data.prompt_count === 'number' ? data.prompt_count : promptCount + 1;
         setPromptCount(nextCount);
@@ -850,25 +860,7 @@ export function AleshaWidget() {
         }
       />
 
-      {/* Modal Konfirmasi Write ke Database Sistem */}
-      <AleshaActionWriteModal
-        isOpen={actionWriteModal.isOpen}
-        onClose={() => setActionWriteModal((prev) => ({ ...prev, isOpen: false }))}
-        actionTag={actionWriteModal.actionTag}
-        sourceMessage={actionWriteModal.sourceMessage}
-        effectiveRole={user?.roles?.[0] || (user as any)?.role || activeRole || 'guru'}
-        currentUserId={user?.id}
-        onSaved={(savedSummary) => {
-          setMessages((p) => [
-            ...p,
-            {
-              id: String(Date.now()),
-              role: 'assistant',
-              content: `Data telah berhasil disimpan dan tercatat ke database sistem: ${savedSummary}`,
-            },
-          ]);
-        }}
-      />
+
 
       {/* Floating Trigger Button in bottom-right corner */}
       <div className="group fixed bottom-6 right-6 z-40 flex items-center print:hidden">
@@ -1028,10 +1020,10 @@ export function AleshaWidget() {
                 {isLimitReached ? (
                   <>
                     <Lock className="w-2.5 h-2.5" />
-                    <span>Kuota Habis (5/5)</span>
+                    <span>Kuota Habis (10/10)</span>
                   </>
                 ) : (
-                  <span>Sisa Kuota: {PUBLIC_PROMPT_LIMIT - promptCount}/5</span>
+                  <span>Sisa Kuota: {PUBLIC_PROMPT_LIMIT - promptCount}/10</span>
                 )}
               </span>
             </div>
@@ -1060,22 +1052,7 @@ export function AleshaWidget() {
                           <RichText text={cleanContent} onAction={(prompt) => handleWidgetAction(prompt, m.content)} />
                         </div>
 
-                        {/* Action Buttons rendered cleanly below assistant bubble */}
-                        {actions.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2.5 pt-1">
-                            {actions.map((act, actIdx) => (
-                              <button
-                                key={actIdx}
-                                type="button"
-                                onClick={() => handleWidgetAction(act.prompt, m.content)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500/15 via-brand-500/10 to-accent-500/15 hover:from-brand-500/25 hover:to-accent-500/25 text-brand-700 dark:text-brand-300 border border-brand-500/30 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95"
-                              >
-                                <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-                                <span>{act.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+
 
                         {/* Interactive Link Chip to /portal if assistant recommended it while on /welcome */}
                         {m.showPortalLink && (
@@ -1159,7 +1136,7 @@ export function AleshaWidget() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      <span>Batas Kuota Pengunjung Tercapai (5/5)</span>
+                      <span>Batas Kuota Pengunjung Tercapai (10/10)</span>
                     </p>
                     <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
                       Silakan masuk untuk melanjutkan interaksi tanpa batas.

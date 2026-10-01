@@ -158,7 +158,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
         url.searchParams.set('role', 'user_umum');
         url.searchParams.set('user_role', 'user_umum');
         url.searchParams.set('target_role', 'user_umum');
-        url.searchParams.set('prompt_limit', '5');
+        url.searchParams.set('prompt_limit', '10');
         url.searchParams.set('prompt_count', String(publicPromptCount));
         url.searchParams.set('user_name', 'Pengunjung SINAU');
         url.searchParams.set('user_fullname', 'Pengunjung SINAU');
@@ -264,7 +264,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           const voiceCount = typeof data.voice_prompt_count === 'number'
             ? data.voice_prompt_count
             : (typeof data.prompt_count === 'number' ? data.prompt_count : 0);
-          const limitReached = Boolean(data.voice_limit_reached ?? (data.is_limit_reached || voiceCount >= 5));
+          const limitReached = Boolean(data.voice_limit_reached ?? (data.is_limit_reached || voiceCount >= 10));
           setPublicPromptCount(voiceCount);
           setIsLimitReached(limitReached);
           try {
@@ -321,21 +321,21 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           if (typeof event.data.voice_prompt_count === 'number') {
             const vCount = event.data.voice_prompt_count;
             setPublicPromptCount(vCount);
-            setIsLimitReached(vCount >= 5);
+            setIsLimitReached(vCount >= 10);
             try {
               sessionStorage.setItem('sinau_voice_prompt_count', String(vCount));
             } catch (_) { }
           } else {
             setPublicPromptCount(prev => {
-              const next = Math.min(5, prev + 1);
+              const next = Math.min(10, prev + 1);
               try { sessionStorage.setItem('sinau_voice_prompt_count', String(next)); } catch (_) { }
-              if (next >= 5) setIsLimitReached(true);
+              if (next >= 10) setIsLimitReached(true);
               return next;
             });
           }
           if (event.data.limit_reached) {
             setIsLimitReached(true);
-            setPublicPromptCount(5);
+            setPublicPromptCount(10);
           }
         }
       }
@@ -350,18 +350,18 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
           setLatestGeneratedFile(event.data.data);
         } else if (event.data.type === 'ALESHA_KIOSK_EVENT' && event.data.action === 'LIMIT_REACHED') {
           setIsLimitReached(true);
-          setPublicPromptCount(5);
+          setPublicPromptCount(10);
           try {
-            sessionStorage.setItem('sinau_voice_prompt_count', '5');
+            sessionStorage.setItem('sinau_voice_prompt_count', '10');
           } catch (e) { }
         } else if (event.data.type === 'ALESHA_KIOSK_EVENT' && event.data.action === 'PROMPT_USED') {
           const c = event.data.count || 1;
           setPublicPromptCount(c);
           try {
             sessionStorage.setItem('sinau_voice_prompt_count', String(c));
-            setIsLimitReached(c >= 5);
+            setIsLimitReached(c >= 10);
           } catch (e) { }
-          if (c >= 5) {
+          if (c >= 10) {
             setIsLimitReached(true);
           }
         }
@@ -383,7 +383,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
       const saved = sessionStorage.getItem('sinau_voice_prompt_count');
       const count = saved ? parseInt(saved, 10) : 0;
       setPublicPromptCount(count);
-      setIsLimitReached(count >= 5 && (!currentUser || currentUser.role === 'user_umum'));
+      setIsLimitReached(count >= 10 && (!currentUser || currentUser.role === 'user_umum'));
       setIsLoading(true);
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -439,7 +439,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
               <span className="text-slate-400 font-medium hidden sm:inline">Sisa Kuota Suara:</span>
               <span className="text-slate-400 font-medium sm:hidden">Suara:</span>
               <span className={`font-bold ${isLimitReached ? 'text-rose-400' : 'text-amber-300'}`}>
-                {Math.max(0, 5 - publicPromptCount)}/5
+                {Math.max(0, 10 - publicPromptCount)}/10
               </span>
               {isLimitReached ? (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold uppercase">
@@ -547,7 +547,7 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-amber-200 flex items-center gap-1.5">
-                    <span>Batas 5 Interaksi Avatar Suara Tercapai</span>
+                    <span>Batas 10 Interaksi Avatar Suara Tercapai</span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/30">Pengunjung Umum</span>
                   </p>
                   <p className="text-[11px] text-slate-300 truncate mt-0.5">

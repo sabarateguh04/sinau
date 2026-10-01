@@ -1,4 +1,5 @@
 import { getAleshaApiBase } from '@/lib/alesha';
+import { isWriteRequest } from './AleshaWidget';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -5011,6 +5012,30 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
     const textToSend = (customPrompt ?? inputText).trim();
     if (!textToSend && attachments.length === 0 && !voiceNote) return;
 
+    // Public /welcome and /portal visitor guardrail: strictly read-only
+    if (isUserUmum && isWriteRequest(textToSend)) {
+      const userMsg: ChatMessage = {
+        id: `user-${Date.now()}`,
+        sessionId: activeSessionId,
+        role: 'user',
+        content: textToSend,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      };
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sessionId: activeSessionId,
+        role: 'assistant',
+        content:
+          'Mohon maaf, fitur penambahan, pengubahan, atau penyimpanan data ke dalam sistem (seperti pembuatan kuis, tugas, soal remedial, RPP, dan modifikasi data) hanya tersedia bagi **Pengajar dan Admin** yang telah masuk (login) ke dalam sistem SINAU.\n\n' +
+          'Sebagai pengunjung umum di halaman Portal/Welcome, Anda memiliki akses penuh untuk **melihat, membaca, dan mempelajari seluruh materi terbuka** yang ada.\n\n' +
+          'Silakan masuk (login) jika Anda ingin mengelola atau menyimpan data pembelajaran.',
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setInputText('');
+      return;
+    }
+
     setErrorMsg(null);
 
     const userMsg: ChatMessage = {
@@ -5488,8 +5513,8 @@ export const AiChatSinauModal: React.FC<AiChatSinauProps> = ({
                       const { cleanContent, actions } = extractActionButtons(m.content);
                       return (
                         <>
-                          <MarkdownViewer content={cleanContent} onExpandChart={setExpandedChart} onAction={handleSendMessage} />
-                          {actions.length > 0 && (
+                          <MarkdownViewer content={cleanContent} onExpandChart={setExpandedChart} onAction={isUserUmum ? undefined : handleSendMessage} />
+                          {actions.length > 0 && !isUserUmum && (
                             <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
                               {actions.map((act: ActionButton, actIdx: number) => {
                                 const isSavePlan =

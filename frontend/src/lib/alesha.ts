@@ -77,14 +77,11 @@ export function speak(text: string, onEnd?: () => void): () => void {
  * 1. Explicit VITE_ALESHA_API_URL environment variable if set.
  * 2. If running in browser and hostname is not localhost/127.0.0.1 (e.g. 172.20.4.220),
  *    uses //:8000.
- * 3. Default fallback: http://localhost:8000
+ * 3. Default fallback: https://alesha-be.djalu.co.id
  */
 export function getAleshaApiBase(): string {
   const envUrl = (import.meta as any).env?.VITE_ALESHA_API_URL;
   if (envUrl) return envUrl;
-  if (typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1')) {
-    return 'http://localhost:8000';
-  }
   return 'https://alesha-be.djalu.co.id';
 }
 
@@ -92,14 +89,10 @@ export function getAleshaApiBase(): string {
  * Resolves the Alesha 3D Avatar Kiosk URL.
  * Automatically adapts:
  * 1. Explicit VITE_ALESHA_KIOSK_URL environment variable if set.
- * 2. If on localhost/127.0.0.1, uses local port 3000.
- * 3. Default production: https://alesha.djalu.co.id/kiosk-public
+ * 2. Default: https://alesha.djalu.co.id/kiosk-public
  */
 export function getAleshaKioskUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_ALESHA_KIOSK_URL;
   if (envUrl) return envUrl;
-  if (typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1')) {
-    return 'http://localhost:3000/kiosk-public';
-  }
   return 'https://alesha.djalu.co.id/kiosk-public';
 }

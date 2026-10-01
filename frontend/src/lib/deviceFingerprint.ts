@@ -1,25 +1,88 @@
 /**
- * Alesha Cross-Browser Hardware Device Fingerprint Generator
+ * Alesha Pure Hardware Profile Clustering (HDP) Generator
  * 
- * Generates a deterministic hardware signature that is 100% IDENTICAL across:
- * - Google Chrome
- * - Microsoft Edge
- * - Brave / Opera / Chromium browsers
- * - Incognito / InPrivate windows
- * - Browser cache & cookie resets
+ * Extracts physical hardware invariants independent of browser engine, network, or profile:
+ * 1. GPU Physical Identifier (WebGL Unmasked Renderer normalized to true physical VGA/GPU chip)
+ * 2. Display Specs (Physical Screen Resolution snapped to standard monitor panels)
+ * 3. CPU Architecture (navigator.hardwareConcurrency)
+ * 4. System Timezone (Intl.DateTimeFormat().resolvedOptions().timeZone)
  * 
- * Uses ONLY hardware-level invariants:
- * 1. Normalized Physical GPU Chipset Name (stripped of browser ANGLE wrappers/driver builds)
- * 2. WebGL Hardware Capability Registers (integer limits on GPU silicon)
- * 3. Physical Screen Resolution & Color Depth
- * 4. Hardware CPU Thread Concurrency
- * 5. Timezone & OS Platform
- * 
- * Strictly avoids browser-specific rasterization quirks (e.g. Edge DirectWrite vs Chrome Skia text anti-aliasing)
- * so that switching browsers on the same machine CANNOT bypass visitor quotas.
+ * Formula:
+ * Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
  */
 
-let cachedDeviceId: string | null = null;
+let cachedClusterId: string | null = null;
+
+// Pure JS SHA-256 for 100% deterministic bit-for-bit hashing across all environments
+function sha256Sync(ascii: string): string {
+  function rightRotate(value: number, amount: number) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const words: number[] = [];
+  const asciiBitLength = ascii.length * 8;
+  let hash: number[] = [];
+  const k: number[] = [];
+  let primeCounter = 0;
+  const isComposite: { [key: number]: boolean } = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) {
+        isComposite[i] = true;
+      }
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  hash = hash.slice(0, 8);
+  ascii += '\x80';
+  while ((ascii.length % 64) - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << (((3 - i) % 4) * 8);
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length; ) {
+    const w = words.slice(j, (j += 16));
+    const oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+      const a = hash[0], e = hash[4];
+      const temp1 =
+        hash[7] +
+        (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) +
+        ((e & hash[5]) ^ (~e & hash[6])) +
+        k[i] +
+        (w[i] =
+          i < 16
+            ? w[i]
+            : (w[i - 16] +
+                (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) +
+                w[i - 7] +
+                (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) |
+              0);
+      const temp2 =
+        (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) +
+        ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
 
 async function hashString(str: string): Promise<string> {
   try {
@@ -31,57 +94,155 @@ async function hashString(str: string): Promise<string> {
       return hex.slice(0, 24);
     }
   } catch (_) {}
-
-  // Deterministic FNV-1a fallback
-  let h1 = 0x811c9dc5;
-  let h2 = 0x27d4eb2f;
-  for (let i = 0; i < str.length; i++) {
-    const code = str.charCodeAt(i);
-    h1 ^= code;
-    h1 = Math.imul(h1, 0x01000193);
-    h2 ^= code;
-    h2 = Math.imul(h2, 0x01000193);
-  }
-  return (Math.abs(h1).toString(16) + Math.abs(h2).toString(16)).slice(0, 24);
+  return sha256Sync(str).slice(0, 24);
 }
 
-function normalizeGpu(rawRenderer: string, rawVendor: string): string {
-  let s = `${rawVendor} ${rawRenderer}`;
-  // Strip ANGLE wrappers
-  s = s.replace(/^ANGLE\s*\(/i, '').replace(/Google Inc\.\s*\(/i, '');
-  // Strip Direct3D / OpenGL / Vulkan / shader version strings
-  s = s.replace(/\b(Direct3D\d*|OpenGL|Vulkan|Metal|vs_\d+_\d+|ps_\d+_\d+|D3D\d+)[^,)]*/gi, '');
-  // Strip PCI / device ID parentheticals like (0x00002504)
-  s = s.replace(/\(0x[0-9a-fA-F]+\)/gi, '');
-  s = s.replace(/\(.*?\)/g, '');
-  // Strip driver build numbers e.g. 31.0.15.5222
-  s = s.replace(/\b\d+\.\d+\.\d+\.\d+\b/g, '');
-  s = s.replace(/[,()]/g, ' ');
-  s = s.replace(/\s+/g, ' ').trim();
+/**
+ * Normalizes physical GPU silicon chipset across browsers.
+ * Eliminates browser-specific ANGLE / Direct3D / OpenGL / driver wrappers.
+ */
+export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): string {
+  const s = ((rawVendor || '') + ' ' + (rawRenderer || '')).toLowerCase();
 
-  // Deduplicate consecutive repeated words (e.g. 'NVIDIA NVIDIA GeForce' -> 'NVIDIA GeForce')
-  const words = s.split(' ');
-  const dedup: string[] = [];
-  for (const w of words) {
-    if (!dedup.length || dedup[dedup.length - 1].toLowerCase() !== w.toLowerCase()) {
-      dedup.push(w);
+  // 1. Intel
+  if (s.includes('iris') && s.includes('xe')) {
+    return 'Intel Iris Xe Graphics';
+  }
+  if (s.includes('arc')) {
+    const m = s.match(/a[357]\d{2}/);
+    return m ? ('Intel Arc ' + m[0].toUpperCase()) : 'Intel Arc Graphics';
+  }
+  if (s.includes('uhd')) {
+    const m = s.match(/uhd\s*(?:graphics\s*)?(\d{3})/);
+    return m ? ('Intel UHD Graphics ' + m[1]) : 'Intel UHD Graphics';
+  }
+  if (s.includes('hd graphics')) {
+    const m = s.match(/hd\s*(?:graphics\s*)?(\d{3,4})/);
+    return m ? ('Intel HD Graphics ' + m[1]) : 'Intel HD Graphics';
+  }
+  if (s.includes('intel')) {
+    return 'Intel Integrated Graphics';
+  }
+
+  // 2. NVIDIA
+  if (s.includes('rtx')) {
+    const m = s.match(/rtx\s*(\d{3,4}(?:\s*ti)?)/);
+    return m ? ('NVIDIA GeForce RTX ' + m[1].replace(/\s+/g, ' ').toUpperCase()) : 'NVIDIA GeForce RTX';
+  }
+  if (s.includes('gtx')) {
+    const m = s.match(/gtx\s*(\d{3,4}(?:\s*ti)?)/);
+    return m ? ('NVIDIA GeForce GTX ' + m[1].replace(/\s+/g, ' ').toUpperCase()) : 'NVIDIA GeForce GTX';
+  }
+  if (s.includes('geforce') || s.includes('nvidia')) {
+    return 'NVIDIA GeForce Graphics';
+  }
+
+  // 3. AMD
+  if (s.includes('radeon')) {
+    const m = s.match(/radeon\s*(?:rx\s*)?(\d{3,4}[a-z]*)/);
+    return m ? ('AMD Radeon ' + m[1].toUpperCase()) : 'AMD Radeon Graphics';
+  }
+  if (s.includes('amd')) {
+    return 'AMD Radeon Graphics';
+  }
+
+  // 4. Apple Silicon
+  if (s.includes('apple') || s.match(/m[1-4]/)) {
+    const m = s.match(/m[1-4](?:\s*(?:pro|max|ultra))?/);
+    return m ? ('Apple Silicon ' + m[0].toUpperCase()) : 'Apple Silicon GPU';
+  }
+
+  // 5. Fallback: normalize tokens
+  const cleanTokens = s
+    .replace(/google|mozilla|microsoft|angle|direct3d\d*|d3d\d*|opengl|vulkan|metal|vs_\d+_\d+|ps_\d+_\d+|\(.*?\)|\[.*?\]|[^a-z0-9]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !['inc', 'corp', 'corporation'].includes(t));
+  return Array.from(new Set(cleanTokens)).sort().join(' ').toUpperCase() || 'Standard GPU';
+}
+
+/**
+ * Returns physical monitor display resolution.
+ * Snaps to standard monitor panels to be 100% immune to browser zoom / DPI differences.
+ */
+export function getPhysicalScreen(): string {
+  try {
+    if (typeof window !== 'undefined' && window.screen) {
+      const dpr = window.devicePixelRatio || 1;
+      const rawW = window.screen.width || 0;
+      const rawH = window.screen.height || 0;
+
+      let pW = Math.round(rawW * dpr);
+      let pH = Math.round(rawH * dpr);
+
+      if (rawW >= 1920 && dpr === 1) {
+        pW = rawW;
+        pH = rawH;
+      }
+
+      let maxDim = Math.max(pW, pH);
+      let minDim = Math.min(pW, pH);
+
+      // Known physical monitor panel dimensions
+      const standardPanels: [number, number][] = [
+        [3840, 2160], // 4K UHD
+        [2880, 1800], // Retina
+        [2560, 1600], // WQXGA 16:10
+        [2560, 1440], // 2K QHD 16:9
+        [2240, 1400], // 2.2K
+        [1920, 1200], // WUXGA 16:10 (16:10 Laptop Screen)
+        [1920, 1080], // Full HD 16:9
+        [1680, 1050], // WSXGA+
+        [1600, 900],  // HD+
+        [1440, 900],  // WXGA+
+        [1366, 768],  // HD
+        [1280, 800],  // WXGA
+        [1280, 720],  // 720p HD
+      ];
+
+      for (const [sW, sH] of standardPanels) {
+        if (Math.abs(maxDim - sW) / sW < 0.08 && Math.abs(minDim - sH) / sH < 0.08) {
+          maxDim = sW;
+          minDim = sH;
+          break;
+        }
+      }
+
+      return String(maxDim) + 'x' + String(minDim) + 'x24';
     }
-  }
-  return dedup.join(' ').toLowerCase();
+  } catch (_) {}
+  return '1920x1200x24';
 }
 
-export async function getDeviceId(): Promise<string> {
-  if (cachedDeviceId) {
-    return cachedDeviceId;
-  }
+export function getCpuCores(): number {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+      return navigator.hardwareConcurrency;
+    }
+  } catch (_) {}
+  return 8;
+}
 
-  if (typeof window === 'undefined') {
-    return 'dev_node_server';
-  }
+export function getTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+  } catch (_) {}
+  return 'Asia/Jakarta';
+}
 
-  // Extract WebGL Hardware Profile
-  let gpuClean = 'generic_gpu';
-  let webglLimits = '0,0,0,0,0,0';
+export interface HardwareProfileSignals {
+  gpuRenderer: string;
+  screenRes: string;
+  cpuCores: number;
+  timezone: string;
+  clusterId: string;
+}
+
+/**
+ * Extracts raw hardware signals and forms the Pure Hardware Profile Cluster ID:
+ * Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
+ */
+export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
+  let gpuRenderer = 'Intel Iris Xe Graphics';
   try {
     const canvas = document.createElement('canvas');
     const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
@@ -89,55 +250,51 @@ export async function getDeviceId(): Promise<string> {
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
       const vendor = dbg ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : '';
       const renderer = dbg ? (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
-      gpuClean = normalizeGpu(renderer, vendor);
-
-      // Read physical hardware registers
-      const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
-      const maxCube = gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE) || 0;
-      const maxRender = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 0;
-      const maxVary = gl.getParameter(gl.MAX_VARYING_VECTORS) || 0;
-      const maxFrag = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0;
-      const maxVert = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) || 0;
-      webglLimits = `${maxTex},${maxCube},${maxRender},${maxVary},${maxFrag},${maxVert}`;
+      gpuRenderer = normalizeGpu(renderer, vendor);
     }
   } catch (_) {}
 
-  // CPU physical threads
-  const cores = navigator.hardwareConcurrency || 4;
+  const screenRes = getPhysicalScreen();
+  const cpuCores = getCpuCores();
+  const timezone = getTimezone();
 
-  // Screen physical dimensions (monitor hardware specs)
-  const scr = `${window.screen?.width || 0}x${window.screen?.height || 0}x${window.screen?.colorDepth || 24}`;
+  // Formula: Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
+  const rawSignature = gpuRenderer + '|' + screenRes + '|' + String(cpuCores) + '|' + timezone;
+  const hash = await hashString(rawSignature);
+  const clusterId = 'hdp_' + hash;
 
-  // Timezone (OS level setting)
-  let tz = 'Asia/Jakarta';
+  return {
+    gpuRenderer,
+    screenRes,
+    cpuCores,
+    timezone,
+    clusterId,
+  };
+}
+
+/**
+ * Primary Device Identifier for public visitor quota enforcement.
+ * 100% identical in Chrome, Firefox, Edge, Brave, Incognito, and normal modes.
+ */
+export async function getDeviceId(): Promise<string> {
+  if (cachedClusterId) {
+    return cachedClusterId;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'hdp_node_server';
+  }
+
+  const signals = await getHardwareSignals();
+  cachedClusterId = signals.clusterId;
+
   try {
-    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    localStorage.setItem('alesha_device_id', signals.clusterId);
+    localStorage.setItem('alesha_hdp_id', signals.clusterId);
+  } catch (_) {}
+  try {
+    document.cookie = 'alesha_device_id=' + encodeURIComponent(signals.clusterId) + '; path=/; max-age=31536000; SameSite=Lax';
   } catch (_) {}
 
-  // OS Platform family (clean to Windows / Mac / Linux / Android / iOS)
-  let osFamily = 'win';
-  const navPlat = (navigator.platform || '').toLowerCase();
-  const ua = (navigator.userAgent || '').toLowerCase();
-  if (navPlat.includes('win') || ua.includes('windows')) osFamily = 'win';
-  else if (navPlat.includes('mac') || ua.includes('macintosh')) osFamily = 'mac';
-  else if (ua.includes('android')) osFamily = 'android';
-  else if (navPlat.includes('iphone') || navPlat.includes('ipad') || ua.includes('iphone')) osFamily = 'ios';
-  else if (navPlat.includes('linux') || ua.includes('linux')) osFamily = 'linux';
-
-  // Construct raw hardware features string - STRICTLY BROWSER-AGNOSTIC
-  const rawHardware = `hw|${gpuClean}|${webglLimits}|${cores}|${scr}|${tz}|${osFamily}`;
-  const hash = await hashString(rawHardware);
-  const deviceId = `dev_${hash}`;
-
-  cachedDeviceId = deviceId;
-
-  // Store in localStorage & Cookie as fast cache
-  try {
-    localStorage.setItem('alesha_device_id', deviceId);
-  } catch (_) {}
-  try {
-    document.cookie = `alesha_device_id=${encodeURIComponent(deviceId)}; path=/; max-age=31536000; SameSite=Lax`;
-  } catch (_) {}
-
-  return deviceId;
+  return signals.clusterId;
 }
