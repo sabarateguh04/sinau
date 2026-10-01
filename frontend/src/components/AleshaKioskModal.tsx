@@ -147,6 +147,10 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
         url.searchParams.set('role', role);
         url.searchParams.set('user_role', role);
         url.searchParams.set('target_role', targetRoleCode);
+        if (targetRoleCode === 'user_umum' || !role || role.toLowerCase() === 'user_umum') {
+          url.searchParams.set('prompt_limit', '10');
+          url.searchParams.set('prompt_count', String(publicPromptCount));
+        }
         url.searchParams.set('user_name', name);
         url.searchParams.set('user_fullname', name);
         url.searchParams.set('fullName', name);

@@ -82,6 +82,13 @@ export function speak(text: string, onEnd?: () => void): () => void {
 export function getAleshaApiBase(): string {
   const envUrl = (import.meta as any).env?.VITE_ALESHA_API_URL;
   if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      const proto = window.location.protocol || 'http:';
+      return `${proto}//${host}:8000`;
+    }
+  }
   return 'https://alesha-be.djalu.co.id';
 }
 
@@ -94,5 +101,12 @@ export function getAleshaApiBase(): string {
 export function getAleshaKioskUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_ALESHA_KIOSK_URL;
   if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      const proto = window.location.protocol || 'http:';
+      return `${proto}//${host}:3000/kiosk-public`;
+    }
+  }
   return 'https://alesha.djalu.co.id/kiosk-public';
 }
