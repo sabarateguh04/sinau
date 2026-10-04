@@ -511,7 +511,7 @@ export async function getClientIps(): Promise<ClientIps> {
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 2500);
-        const res = await fetch('https://api6.ipify.org?format=json', { signal: ctrl.signal });
+        const res = await fetch('https://api64.ipify.org?format=json', { signal: ctrl.signal });
         clearTimeout(tid);
         if (res.ok) {
           const data = await res.json();
@@ -535,5 +535,6 @@ export async function getClientIps(): Promise<ClientIps> {
 
   return ipFetchPromise;
 }
+
 
 
