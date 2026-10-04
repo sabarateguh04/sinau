@@ -307,3 +307,104 @@ export async function getDeviceId(): Promise<string> {
 
   return signals.clusterId;
 }
+
+
+export interface ClientIps {
+  ipv4?: string;
+  ipv6?: string;
+}
+
+let cachedIps: ClientIps | null = null;
+let ipFetchPromise: Promise<ClientIps> | null = null;
+
+/**
+ * Discovers and caches the client's public IPv4 and IPv6 addresses.
+ * Resolves in parallel with fast timeouts.
+ */
+export async function getClientIps(): Promise<ClientIps> {
+  if (cachedIps && (cachedIps.ipv4 || cachedIps.ipv6)) {
+    return cachedIps;
+  }
+  if (ipFetchPromise) {
+    return ipFetchPromise;
+  }
+
+  ipFetchPromise = (async () => {
+    let ipv4: string | undefined;
+    let ipv6: string | undefined;
+
+    // Check sessionStorage / localStorage first
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = sessionStorage.getItem('alesha_client_ips') || localStorage.getItem('alesha_client_ips');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.ipv4) ipv4 = parsed.ipv4;
+            if (parsed.ipv6) ipv6 = parsed.ipv6;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fetch IPv4 with 2.5s timeout
+    const fetchIpv4 = async (): Promise<string | undefined> => {
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch('https://api4.ipify.org?format=json', { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.ip === 'string') return data.ip.trim();
+        }
+      } catch (_) {}
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch('https://api.ipify.org?format=json', { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.ip === 'string') return data.ip.trim();
+        }
+      } catch (_) {}
+      return undefined;
+    };
+
+    // Fetch IPv6 with 2.5s timeout
+    const fetchIpv6 = async (): Promise<string | undefined> => {
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch('https://api6.ipify.org?format=json', { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.ip === 'string') return data.ip.trim();
+        }
+      } catch (_) {}
+      return undefined;
+    };
+
+    const [v4Res, v6Res] = await Promise.allSettled([fetchIpv4(), fetchIpv6()]);
+    if (v4Res.status === 'fulfilled' && v4Res.value) {
+      ipv4 = v4Res.value;
+    }
+    if (v6Res.status === 'fulfilled' && v6Res.value) {
+      ipv6 = v6Res.value;
+    }
+
+    cachedIps = { ipv4, ipv6 };
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('alesha_client_ips', JSON.stringify(cachedIps));
+        localStorage.setItem('alesha_client_ips', JSON.stringify(cachedIps));
+      }
+    } catch (_) {}
+
+    return cachedIps;
+  })();
+
+  return ipFetchPromise;
+}

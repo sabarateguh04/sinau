@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, Link } from 'react-router-dom';
-import { getDeviceId, getHardwareSignals } from '../lib/deviceFingerprint';
+import { getClientIps } from '../lib/deviceFingerprint';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AudioLines,
@@ -593,16 +593,19 @@ export function AleshaWidget() {
 
   useEffect(() => saveMessages(messages), [messages]);
 
-  // Sync device quota from backend (tied to unique hardware device fingerprint)
+  // Sync quota from backend (strictly tied to IP address: IPv4 & IPv6)
   const syncDeviceQuota = useCallback(async () => {
     try {
       const aleshaApiBase = getAleshaApiBase();
-      const devId = await getDeviceId();
-      const signals = await getHardwareSignals();
-      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=chat&device_id=${encodeURIComponent(devId)}&gpu=${encodeURIComponent(signals.gpuRenderer)}&scr=${encodeURIComponent(signals.screenRes)}&tz=${encodeURIComponent(signals.timezone)}&sig=${encodeURIComponent(signals.rawSignature)}`, {
+      const ips = await getClientIps();
+      const q = new URLSearchParams();
+      q.set('mode', 'chat');
+      if (ips.ipv4) q.set('ipv4', ips.ipv4);
+      if (ips.ipv6) q.set('ipv6', ips.ipv6);
+      const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?${q.toString()}`, {
         headers: {
-          'X-Device-Id': devId,
-          'X-Raw-Signature': signals.rawSignature,
+          ...(ips.ipv4 ? { 'X-Client-IPv4': ips.ipv4 } : {}),
+          ...(ips.ipv6 ? { 'X-Client-IPv6': ips.ipv6 } : {}),
         },
       });
       if (res.ok) {
@@ -713,16 +716,12 @@ export function AleshaWidget() {
       const aleshaApiBase = getAleshaApiBase();
 
       try {
-        const devId = await getDeviceId();
-        const signals = await getHardwareSignals();
+        const ips = await getClientIps();
         const payload = {
           message: content,
           mode: 'chat',
-          device_id: devId,
-          gpu: signals.gpuRenderer,
-          scr: signals.screenRes,
-          tz: signals.timezone,
-          raw_signature: signals.rawSignature,
+          ipv4: ips.ipv4,
+          ipv6: ips.ipv6,
           user_role: activeRole || user?.roles?.[0] || 'user_umum',
           target_role: 'user_umum',
           current_page: loc.pathname,
@@ -734,8 +733,8 @@ export function AleshaWidget() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Device-Id': devId,
-            'X-Raw-Signature': signals.rawSignature,
+            ...(ips.ipv4 ? { 'X-Client-IPv4': ips.ipv4 } : {}),
+            ...(ips.ipv6 ? { 'X-Client-IPv6': ips.ipv6 } : {}),
           },
           body: JSON.stringify(payload),
         });
@@ -888,7 +887,7 @@ export function AleshaWidget() {
           </p>
           <p className="mt-1 text-[11px] text-slate-300">
             {isLimitReached
-              ? 'Batas 5 interaksi umum tercapai'
+              ? 'Batas 10 interaksi umum tercapai'
               : `Kuota umum: ${PUBLIC_PROMPT_LIMIT - promptCount}/${PUBLIC_PROMPT_LIMIT} interaksi tersisa`}
           </p>
         </div>
@@ -957,8 +956,8 @@ export function AleshaWidget() {
             className={cx(
               'fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface shadow-2xl transition-all duration-300 sm:inset-auto sm:right-6 sm:rounded-3xl sm:border sm:border-line print:hidden',
               isExpanded
-                ? 'sm:bottom-8 sm:h-[620px] sm:max-h-[calc(100vh-4rem)] sm:w-[580px] md:w-[660px]'
-                : 'sm:bottom-20 sm:h-[460px] sm:max-h-[calc(100vh-8rem)] sm:w-[370px] md:w-[400px]'
+                ? 'sm:bottom-20 sm:h-[720px] md:h-[780px] sm:max-h-[calc(100vh-6.5rem)] sm:w-[700px] md:w-[780px] lg:w-[860px]'
+                : 'sm:bottom-20 sm:h-[540px] md:h-[580px] sm:max-h-[calc(100vh-6.5rem)] sm:w-[430px] md:w-[470px]'
             )}
           >
             {/* Header: Brand Gradient matching /welcome CTA & Hero */}
@@ -1139,7 +1138,7 @@ export function AleshaWidget() {
                                 key={s}
                                 type="button"
                                 onClick={() => void send(s)}
-                                className="rounded-full border border-brand-200 bg-surface px-3 py-1 text-[11px] font-medium text-brand-700 hover:bg-brand-50 hover:border-brand-400 transition-all dark:border-brand-800 dark:text-brand-300 dark:hover:bg-brand-900/40 shadow-xs cursor-pointer"
+                                className="text-left rounded-full border border-brand-200 bg-surface px-3.5 py-1.5 text-[11px] font-medium leading-snug text-brand-700 hover:bg-brand-50 hover:border-brand-400 transition-all dark:border-brand-800 dark:text-brand-300 dark:hover:bg-brand-900/40 shadow-xs cursor-pointer"
                               >
                                 {s}
                               </button>
@@ -1195,7 +1194,7 @@ export function AleshaWidget() {
                 <input
                   disabled
                   value=""
-                  placeholder="Batas 5 interaksi pengunjung tercapai. Silakan masuk..."
+                  placeholder="Batas 10 interaksi pengunjung tercapai. Silakan masuk..."
                   className="input h-9 w-full rounded-xl border border-line bg-surface-2 px-3 text-xs text-ink-3 cursor-not-allowed opacity-60"
                 />
               </div>

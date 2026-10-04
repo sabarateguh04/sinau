@@ -89,7 +89,7 @@ export function getAleshaApiBase(): string {
       return `${proto}//${host}:8000`;
     }
   }
-  return 'http://localhost:8000';
+  return 'https://alesha-be.djalu.co.id';
 }
 
 /**
@@ -108,5 +108,5 @@ export function getAleshaKioskUrl(): string {
       return `${proto}//${host}:3000/kiosk-public`;
     }
   }
-  return 'http://localhost:3000/kiosk-public';
+  return 'https://alesha.djalu.co.id/kiosk-public';
 }

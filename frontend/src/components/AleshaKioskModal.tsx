@@ -4,7 +4,7 @@ const secureStorage = {
   setItem: (k: string, v: any) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
 };
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { getDeviceId } from '../lib/deviceFingerprint';
+import { getDeviceId, getClientIps, type ClientIps } from '../lib/deviceFingerprint';
 import {
   X,
   Sparkles,
@@ -52,9 +52,11 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
   const [latestGeneratedFile, setLatestGeneratedFile] = useState<any>(null);
   const [isLimitReached, setIsLimitReached] = useState(false);
   const [deviceId, setDeviceId] = useState<string>('');
+  const [clientIps, setClientIps] = useState<ClientIps>({});
 
   useEffect(() => {
     getDeviceId().then(setDeviceId).catch(() => { });
+    getClientIps().then(setClientIps).catch(() => { });
   }, []);
 
   const [publicPromptCount, setPublicPromptCount] = useState<number>(() => {
@@ -125,6 +127,12 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
       url.searchParams.set('mode', 'voice');
       if (deviceId) {
         url.searchParams.set('device_id', deviceId);
+      }
+      if (clientIps.ipv4) {
+        url.searchParams.set('ipv4', clientIps.ipv4);
+      }
+      if (clientIps.ipv6) {
+        url.searchParams.set('ipv6', clientIps.ipv6);
       }
       url.searchParams.set('menu', readableMenuName);
 
@@ -259,9 +267,16 @@ export const AleshaKioskModal: React.FC<AleshaKioskModalProps> = ({
     const syncQuota = async () => {
       try {
         const aleshaApiBase = getAleshaApiBase();
-        const devId = deviceId || (await getDeviceId());
-        const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?mode=voice&device_id=${encodeURIComponent(devId)}`, {
-          headers: { 'X-Device-Id': devId },
+        const ips = await getClientIps();
+        const q = new URLSearchParams();
+        q.set('mode', 'voice');
+        if (ips.ipv4) q.set('ipv4', ips.ipv4);
+        if (ips.ipv6) q.set('ipv6', ips.ipv6);
+        const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?${q.toString()}`, {
+          headers: {
+            ...(ips.ipv4 ? { 'X-Client-IPv4': ips.ipv4 } : {}),
+            ...(ips.ipv6 ? { 'X-Client-IPv6': ips.ipv6 } : {}),
+          },
         });
         if (res.ok) {
           const data = await res.json();
