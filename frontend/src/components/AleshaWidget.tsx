@@ -554,6 +554,13 @@ export function AleshaWidget() {
   };
   const [mode, setMode] = useState<Mode>('chat');
   const [isKioskOpen, setIsKioskOpen] = useState(false);
+
+  // Automatically close chatbot modal when 3D Avatar Voice modal opens
+  useEffect(() => {
+    if (isKioskOpen) {
+      setOpen(false);
+    }
+  }, [isKioskOpen]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Msg[]>(() => loadMessages(loc.pathname, user?.full_name));
   const [input, setInput] = useState('');
@@ -889,7 +896,7 @@ export function AleshaWidget() {
 
 
       {/* Floating Trigger Button in bottom-right corner */}
-      <div className="group fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center print:hidden">
+      <div className={cx("group fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center print:hidden", isKioskOpen && "hidden")}>
         {/* Tooltip hovering on trigger button (Desktop only to prevent mobile overflow) */}
         <div className="hidden md:block pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 translate-x-2 whitespace-nowrap rounded-2xl bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 text-xs text-white opacity-0 shadow-2xl transition-all group-hover:translate-x-0 group-hover:opacity-100 border border-emerald-500/30">
           <p className="font-bold flex items-center gap-1.5 text-white">
@@ -957,7 +964,7 @@ export function AleshaWidget() {
 
       {/* Floating Dialog Panel matching /welcome and /portal design aesthetics */}
       <AnimatePresence>
-        {open && (
+        {open && !isKioskOpen && (
           <motion.section
             key="alesha-widget"
             role="dialog"
@@ -1035,6 +1042,7 @@ export function AleshaWidget() {
               <button
                 type="button"
                 onClick={() => {
+                  setOpen(false);
                   setIsKioskOpen(true);
                 }}
                 className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-accent-600 dark:text-accent-400 hover:bg-surface transition-all cursor-pointer border border-transparent hover:border-line"
@@ -1268,3 +1276,6 @@ export function AleshaWidget() {
 }
 
 export default AleshaWidget;
+
+
+
