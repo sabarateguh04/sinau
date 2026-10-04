@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Alesha AI — floating chat & voice assistant.
  * Styled specifically for public visitors on /welcome and /portal with user_umum role.
  * Features:
@@ -604,6 +604,7 @@ export function AleshaWidget() {
       q.set('mode', 'chat');
       q.set('device_id', devId);
       q.set('device_category', signals.deviceCategory);
+      q.set('raw_sig', signals.rawSignature);
       if (ips.ipv4) q.set('ipv4', ips.ipv4);
       if (ips.ipv6) q.set('ipv6', ips.ipv6);
       const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?${q.toString()}`, {
@@ -774,7 +775,7 @@ export function AleshaWidget() {
         );
 
         if (limitReachedFromBackend && !data.limit_reached) {
-          reply = `${reply}\n\n---\nℹ️ *Ini adalah interaksi ke-5 Anda sebagai pengunjung umum. Untuk melanjutkan konsultasi berikutnya, silakan masuk (login) ke akun SINAU Anda.*`;
+          reply = `${reply}\n\n---\nℹ️ *Ini adalah interaksi ke-10 Anda sebagai pengunjung umum. Untuk melanjutkan konsultasi berikutnya, silakan masuk (login) ke akun SINAU Anda.*`;
         }
 
         setMessages((p) => [
