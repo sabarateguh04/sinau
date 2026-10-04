@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BookOpen, ShieldCheck, Sparkles, Building2, ArrowRight, Bot, Map, PenTool, BrainCircuit, GraduationCap, ClipboardCheck, Wallet, UserPlus, Boxes, BadgeCheck, Lock, CalendarCheck, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui';
+import { Button, cx } from '@/components/ui';
+import gambar5 from '@/img/gambar5.jpg';
 
 interface TenantLite { id: string; slug: string; name: string; type: string; display_name: string | null; logo_url: string | null; primary_color: string }
 const CYCLE = ['Materi', 'Pembelajaran', 'Aktivitas', 'Evaluasi', 'Analisis AI', 'Rekomendasi'];
@@ -39,15 +40,96 @@ export default function Landing() {
           <div className="blob blob-2 -right-32 top-10 h-[30rem] w-[30rem] bg-accent-400/50 dark:bg-accent-500/25" />
           <div className="blob blob-3 bottom-[-10rem] left-1/3 h-[24rem] w-[24rem] bg-brand-600/40 dark:bg-brand-400/20" />
         </div>
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:py-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-5 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:py-8">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-            <span className="chip bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200"><Sparkles className="mr-1 inline h-3.5 w-3.5" />Learn. Teach. Improve. Grow.</span>
-            <h1 className="mt-4 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">Satu platform.<br />Satu data belajar.<br /><span className="bg-gradient-to-r from-brand-700 to-accent-600 bg-clip-text text-transparent">Satu lapisan intelijen.</span></h1>
-            <p className="mt-5 max-w-xl text-lg text-ink-2">Kebanyakan LMS berhenti pada menyimpan dan melaporkan. SINAU melanjutkan: <b className="text-ink">Alesha AI</b> membaca seluruh aktivitas belajar lalu menjawab apa yang belum dipahami, mengapa, dan apa yang sebaiknya dilakukan besok.</p>
-            <div className="mt-7 flex flex-wrap gap-3"><Link to="/login"><Button size="lg" icon={<ArrowRight className="h-4 w-4" />}>Masuk</Button></Link><Link to="/portal"><Button size="lg" variant="outline" icon={<BookOpen className="h-4 w-4" />}>Jelajahi materi publik</Button></Link></div>
-            {stats && <div className="mt-8 flex gap-8 text-sm text-ink-2"><span><b className="text-xl text-ink">{stats.tenants}</b> lembaga</span><span><b className="text-xl text-ink">{Number(stats.students).toLocaleString('id-ID')}</b> siswa</span><span><b className="text-xl text-ink">{Number(stats.materials).toLocaleString('id-ID')}</b> materi</span></div>}
+            {/* Tagline Top Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-50/90 px-3.5 py-1 text-xs font-bold text-brand-800 shadow-xs backdrop-blur-md dark:border-brand-500/30 dark:bg-brand-950/50 dark:text-brand-300">
+              <Sparkles className="h-3.5 w-3.5 text-accent-500 animate-pulse" />
+              <span>Learn. Teach. Improve. Grow.</span>
+            </div>
+
+            {/* Headline */}
+            <h1 className="mt-2.5 text-3xl font-black leading-[1.12] tracking-tight sm:text-4xl lg:text-[2.65rem]">
+              Satu platform.<br />Satu data belajar.<br />
+              <span className="bg-gradient-to-r from-brand-700 via-teal-600 to-accent-600 bg-clip-text text-transparent dark:from-brand-400 dark:via-teal-300 dark:to-accent-400">
+                Satu lapisan intelijen.
+              </span>
+            </h1>
+
+            {/* Body text */}
+            <p className="mt-3 max-w-lg text-sm sm:text-base leading-relaxed text-ink-2 font-normal">
+              Kebanyakan LMS berhenti pada menyimpan dan melaporkan. SINAU melanjutkan: <b className="text-ink font-semibold">Alesha AI</b> membaca seluruh aktivitas belajar lalu menjawab apa yang belum dipahami, mengapa, dan apa yang sebaiknya dilakukan besok.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="mt-4 sm:mt-5 flex flex-wrap gap-2.5">
+              <Link to="/login">
+                <Button size="lg" className="shadow-lg shadow-brand-700/20 hover:shadow-brand-700/35 hover:-translate-y-0.5 transition-all" icon={<ArrowRight className="h-4 w-4" />}>
+                  Masuk
+                </Button>
+              </Link>
+              <Link to="/portal">
+                <Button size="lg" variant="outline" className="border-line/80 bg-surface/70 hover:bg-surface hover:border-brand-500/40 backdrop-blur-md transition-all shadow-xs" icon={<BookOpen className="h-4 w-4" />}>
+                  Jelajahi materi publik
+                </Button>
+              </Link>
+            </div>
+
+            {/* Redesigned Mini Stats Card with Dividers & Icons */}
+            {stats && (
+              <div className="mt-5 pt-3.5 border-t border-line/60">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-surface/70 dark:bg-surface-2/70 border border-line/50 p-2 sm:p-2.5 backdrop-blur-md shadow-xs">
+                  {/* Stat 1: Lembaga */}
+                  <div className="flex items-center gap-2 px-1.5 sm:px-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm sm:text-base font-black tracking-tight text-ink leading-none">
+                        {stats.tenants}
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-medium text-ink-3 truncate mt-0.5">
+                        Lembaga
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-2 border-l border-line/70 px-1.5 sm:px-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                      <GraduationCap className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm sm:text-base font-black tracking-tight text-ink leading-none">
+                        {Number(stats.students).toLocaleString('id-ID')}
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-medium text-ink-3 truncate mt-0.5">
+                        Siswa Aktif
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-2 border-l border-line/70 px-1.5 sm:px-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm sm:text-base font-black tracking-tight text-ink leading-none">
+                        {Number(stats.materials).toLocaleString('id-ID')}
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] font-medium text-ink-3 truncate mt-0.5">
+                        Materi
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative isolate"><div className="orbit -z-10" /><CampusScene /></motion.div>
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="relative isolate lg:-mt-3">
+            <HeroPhotoVisual />
+          </motion.div>
         </div>
       </section>
 
@@ -78,7 +160,7 @@ export default function Landing() {
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/10 p-5 font-mono text-sm backdrop-blur">
             <div className="mb-3 text-xs uppercase tracking-wider text-white/60">Matematika · X RPL 1 · 32 siswa</div>
-            {[['Pecahan · konsep dasar', 91], ['Pecahan · senilai', 87], ['Pecahan · penjumlahan', 73], ['Pecahan · soal cerita', 48], ['Desimal · konversi', 88], ['Desimal · aplikasi', 52]].map(([l, v], i) => { const n = Number(v); return <div key={String(l)} className="flex items-center gap-3 py-1"><span className="w-44 shrink-0 truncate text-white/80">{l}</span><span className="h-2 flex-1 overflow-hidden rounded-full bg-white/15"><motion.span initial={{ width: 0 }} whileInView={{ width: `${n}%` }} viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.6 }} className={`block h-full rounded-full ${n < 60 ? 'bg-red-400' : n < 80 ? 'bg-amber-300' : 'bg-emerald-400'}`} /></span><span className="w-10 text-right font-semibold">{n}%</span><span className="hidden w-24 text-xs text-white/60 sm:block">{n < 60 ? 'kritis' : n < 80 ? 'perlu penguatan' : 'baik'}</span></div>; })}
+            {[['Pecahan · konsep dasar', 91], ['Pecahan · senilai', 87], ['Pecahan · penjumlahan', 73], ['Pecahan · soal cerita', 48], ['Desimal · konversi', 88], ['Desimal · aplikasi', 52]].map(([l, v], i) => { const n = Number(v); return <div key={String(l)} className="flex items-center gap-3 py-1"><span className="w-32 sm:w-44 shrink-0 truncate text-white/80">{l}</span><span className="h-2 flex-1 overflow-hidden rounded-full bg-white/15"><motion.span initial={{ width: 0 }} whileInView={{ width: `${n}%` }} viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.6 }} className={`block h-full rounded-full ${n < 60 ? 'bg-red-400' : n < 80 ? 'bg-amber-300' : 'bg-emerald-400'}`} /></span><span className="w-10 text-right font-semibold">{n}%</span><span className="hidden w-24 text-xs text-white/60 sm:block">{n < 60 ? 'kritis' : n < 80 ? 'perlu penguatan' : 'baik'}</span></div>; })}
             <div className="mt-3 rounded-xl bg-amber-400/15 p-3 text-xs text-amber-100">⚠ 68% pembelajar memilih pengecoh yang sama pada pecahan senilai — <b>Saran Alesha:</b> ulangi dengan model batang sebelum lanjut ke operasi pecahan.</div>
           </div>
         </div>
@@ -126,139 +208,130 @@ export default function Landing() {
 }
 
 /**
- * Hero visual: a round campus illustration — deliberately unlike the Alesha chat panel.
- * The open panel covers roughly x>200 / y>215 of this viewBox, so the annex, pupils,
- * birds and hedgerow all sit left-of-centre or high in the sky and stay readable
- * while someone is chatting.
+ * Modern HD Photography Carousel + AI Glassmorphism Hero Visual
+ * Features 3-image auto-rotating slideshow (3000ms interval) with smooth Ken-Burns crossfade,
+ * interactive dot navigation, and AI glassmorphic floating badges.
  */
-const HALO = [
-  { icon: BookOpen, t: 'Materi & tugas', pos: 'left-0 top-[14%]', d: 0 },
-  { icon: GraduationCap, t: 'Kelas & rapor', pos: 'right-0 top-[3%]', d: 0.9 },
-  { icon: CalendarCheck, t: 'Presensi harian', pos: 'bottom-[16%] left-[1%]', d: 1.8 },
+const HERO_SLIDES = [
+  {
+    url: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1200&q=80',
+    title: 'Belajar & Diskusi Digital',
+    caption: '1. Akses Materi & Diskusi Interaktif',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80',
+    title: 'E-Learning via Laptop/Gadget',
+    caption: '2. Pembelajaran Mandiri Fleksibel',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1531545514256-b1400bc00f31?auto=format&fit=crop&w=1200&q=80',
+    title: 'Kolaborasi & Mentoring Siswa',
+    caption: '3. Kolaborasi Kelas Terpadu',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
+    title: 'Analisis & Evaluasi Otomatis AI',
+    caption: '4. Pemantauan Progres Real-Time',
+  },
+  {
+    url: gambar5,
+    title: 'Capaian & Hasil Belajar Siswa',
+    caption: '5. Rekomendasi Adaptif & Panduan Belajar Alesha AI',
+  },
 ];
-const PUPILS = [
-  { x: 146, y: 338, body: 'fill-accent-500', hop: 0 },
-  { x: 172, y: 346, body: 'fill-brand-600 dark:fill-brand-400', hop: 0.7 },
-  { x: 196, y: 336, body: 'fill-brand-500', hop: 1.4 },
-];
-const RAYS = [0, 60, 120, 180, 240, 300];
 
-function CampusScene() {
+function HeroPhotoVisual() {
   const reduce = useReducedMotion();
   const ease = 'easeInOut' as const;
-  const float = (delay: number) => (reduce ? {} : { animate: { y: [0, -7, 0] }, transition: { duration: 5.5, repeat: Infinity, ease, delay } });
-  const loop = (animate: Record<string, number[]>, duration: number, delay = 0) =>
-    reduce ? {} : { animate, transition: { duration, repeat: Infinity, ease, delay } };
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className="relative mx-auto w-full max-w-[400px]">
-      <div className="aspect-square overflow-hidden rounded-full bg-gradient-to-b from-brand-100 via-surface to-amber-50 shadow-[0_28px_70px_-28px_rgb(15_23_42/0.45)] ring-1 ring-brand-200/70 dark:from-brand-800/55 dark:via-brand-900/45 dark:to-surface-3 dark:ring-2 dark:ring-brand-600/50">
-        <svg viewBox="0 0 400 400" className="h-full w-full" role="img" aria-label="Ilustrasi kampus sekolah: gedung utama bermenara jam, gedung annex, halaman dengan pepohonan dan siswa">
-          {/* Sun */}
-          <circle cx="312" cy="84" r="34" fill="var(--accent-400)" opacity="0.28" />
-          {RAYS.map((a) => (
-            <line
-              key={a} x1="312" y1="84"
-              x2={(312 + 44 * Math.cos((a * Math.PI) / 180)).toFixed(1)}
-              y2={(84 + 44 * Math.sin((a * Math.PI) / 180)).toFixed(1)}
-              stroke="var(--accent-400)" strokeWidth="3" strokeLinecap="round" opacity="0.45"
-            />
-          ))}
-          <circle cx="312" cy="84" r="19" fill="var(--accent-400)" opacity="0.9" />
+    <div className="relative mx-auto w-full max-w-[490px] lg:max-w-none pt-1 pb-6 sm:pb-8 lg:-translate-y-2 mb-4 sm:mb-6">
+      {/* Ambient Glowing Radial Gradient Aura */}
+      <div className="absolute -inset-4 sm:-inset-6 rounded-[2.5rem] bg-gradient-to-tr from-brand-500/25 via-teal-400/20 to-accent-500/20 blur-3xl -z-10 animate-pulse [animation-duration:6s] pointer-events-none" />
 
-          {/* Clouds */}
-          <motion.g className="fill-white/80 dark:fill-brand-200/10" {...loop({ x: [0, 14, 0] }, 16)}>
-            <ellipse cx="94" cy="104" rx="35" ry="15" />
-            <ellipse cx="118" cy="95" rx="23" ry="14" />
-          </motion.g>
-          <motion.g className="fill-white/75 dark:fill-brand-200/10" {...loop({ x: [0, -11, 0] }, 21, 1.5)}>
-            <ellipse cx="286" cy="158" rx="27" ry="11" />
-          </motion.g>
+      {/* Floating Badge 1 (Kiri Atas): AI-Powered Learning System */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={reduce ? { opacity: 1 } : { opacity: 1, y: [0, -6, 0] }}
+        transition={reduce ? { duration: 0.3 } : { duration: 6, repeat: Infinity, ease }}
+        className="absolute -top-2.5 -left-2 sm:-top-3 sm:-left-3 z-20 flex items-center gap-2 rounded-full border border-white/40 dark:border-white/15 bg-white/85 dark:bg-slate-900/85 px-3 py-1.5 sm:px-3.5 sm:py-2 shadow-xl shadow-brand-950/10 backdrop-blur-md"
+      >
+        <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-gradient-to-tr from-brand-600 via-teal-500 to-accent-500 text-white shadow-xs">
+          <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-ink dark:text-white whitespace-nowrap">
+            AI-Powered Learning System
+          </span>
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+        </div>
+      </motion.div>
 
-          {/* Birds */}
-          <motion.g stroke="var(--ink-3)" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7" {...loop({ x: [0, 18, 0], y: [0, -7, 0] }, 11)}>
-            <path d="M58 78 q6 -6 12 0 q6 -6 12 0" />
-            <path d="M94 56 q5 -5 10 0 q5 -5 10 0" />
-            <path d="M124 88 q4 -4 8 0 q4 -4 8 0" />
-          </motion.g>
-
-          {/* Ground + walkway */}
-          <path d="M-10 296 Q200 276 410 296 L410 410 L-10 410 Z" className="fill-brand-600/20 dark:fill-brand-400/25" />
-          <path d="M-10 318 Q200 300 410 318 L410 410 L-10 410 Z" className="fill-brand-700/28 dark:fill-brand-500/30" />
-
-          {/* Trees */}
-          <g opacity="0.9">
-            <rect x="28" y="266" width="8" height="28" rx="4" fill="var(--brand-800)" opacity="0.75" />
-            <circle cx="24" cy="262" r="11" fill="var(--brand-600)" />
-            <circle cx="42" cy="262" r="11" fill="var(--brand-400)" />
-            <circle cx="32" cy="252" r="15" fill="var(--brand-500)" />
-            <rect x="324" y="272" width="9" height="26" rx="4" fill="var(--brand-800)" opacity="0.75" />
-            <circle cx="312" cy="268" r="14" fill="var(--brand-600)" />
-            <circle cx="342" cy="268" r="14" fill="var(--brand-400)" />
-            <circle cx="328" cy="257" r="20" fill="var(--brand-500)" />
-          </g>
-
-          {/* Annex — a low left wing, so the campus is not one lonely block */}
-          <rect x="44" y="248" width="68" height="44" className="fill-surface dark:fill-surface-3" stroke="var(--brand-300)" strokeWidth="2" />
-          <rect x="38" y="240" width="80" height="9" rx="4" className="fill-brand-800 dark:fill-brand-600" />
-          {[52, 74, 96].map((x) => (
-            <rect key={x} x={x} y="260" width="14" height="16" rx="2" fill="var(--accent-400)" stroke="var(--brand-800)" strokeWidth="1.2" strokeOpacity="0.25" opacity="0.9" />
+      {/* Floating Main Image Container with Smooth Float & Hover Scale */}
+      <motion.div
+        animate={reduce ? {} : { y: [0, -8, 0] }}
+        transition={reduce ? {} : { duration: 7, repeat: Infinity, ease }}
+        className="group relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/60 dark:border-white/10 bg-slate-950 shadow-2xl shadow-emerald-500/10 dark:shadow-brand-950/30 ring-1 ring-black/5"
+      >
+        {/* Aspect ratio container - keeps height compact and aligned with stats fold */}
+        <div className="relative aspect-[16/11] sm:aspect-[16/11] w-full overflow-hidden bg-slate-900">
+          {HERO_SLIDES.map((slide, i) => (
+            <div
+              key={slide.url}
+              className={cx(
+                'absolute inset-0 transition-all duration-700 ease-in-out',
+                currentSlide === i ? 'opacity-100 scale-100' : 'opacity-0 scale-105 pointer-events-none'
+              )}
+            >
+              <img
+                src={slide.url}
+                alt={slide.caption}
+                loading={i === 0 ? 'eager' : 'lazy'}
+                className="h-full w-full object-cover"
+              />
+            </div>
           ))}
 
-          {/* Main block + clock tower */}
-          <rect x="112" y="214" width="176" height="78" className="fill-surface dark:fill-surface-3" stroke="var(--brand-300)" strokeWidth="2" />
-          <polygon points="102,216 200,168 298,216" fill="var(--brand-700)" />
-          <rect x="98" y="212" width="204" height="9" rx="4" className="fill-brand-800 dark:fill-brand-600" />
-          <rect x="174" y="150" width="52" height="64" className="fill-surface dark:fill-surface-3" stroke="var(--brand-300)" strokeWidth="2" />
-          <polygon points="166,152 200,120 234,152" className="fill-brand-800 dark:fill-brand-600" />
-          <path d="M200 120 V86" stroke="var(--ink-3)" strokeWidth="3" strokeLinecap="round" />
-          <motion.path d="M201 90 L229 98 L201 108 Z" fill="var(--accent-500)" style={{ transformOrigin: '201px 99px' }} {...loop({ rotate: [0, -4, 0, 4, 0] }, 6)} />
-          <circle cx="200" cy="181" r="13" fill="var(--accent-400)" />
-          <path d="M200 174 V181 L205 185" stroke="var(--brand-900)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          {/* Subtle glassmorphic & ambient emerald/dark gradient overlays for crisp readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/45 via-35% to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-brand-900/25 via-transparent to-accent-500/15 pointer-events-none" />
 
-          {/* Windows — two breathe so the scene is not dead still */}
-          {[[118, 226], [146, 226], [232, 226], [260, 226], [118, 256], [146, 256], [232, 256], [260, 256]].map(([x, y], i) => (
-            <motion.rect
-              key={`${x}-${y}`} x={x} y={y} width="22" height="22" rx="3"
-              fill="var(--accent-400)" stroke="var(--brand-800)" strokeWidth="1.5" strokeOpacity="0.25"
-              {...(reduce || (i !== 0 && i !== 5) ? { opacity: 0.92 } : { animate: { opacity: [0.92, 0.55, 0.92] }, transition: { duration: 4, repeat: Infinity, delay: i * 1.3 } })}
-            />
-          ))}
+          {/* Bottom Photo Integrated Glass Caption Bar & Indicators */}
+          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 rounded-xl border border-white/20 bg-slate-950/75 px-3 py-2 text-xs text-white backdrop-blur-md shadow-lg">
+            {/* Badge caption dinamis di kiri bawah kartu */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
+              <span className="font-semibold text-[11px] sm:text-xs text-white/95 truncate">
+                {HERO_SLIDES[currentSlide].caption}
+              </span>
+            </div>
 
-          {/* Entrance */}
-          <path d="M186 292 v-22 a14 14 0 0 1 28 0 v22 z" className="fill-brand-600 dark:fill-brand-400" />
-          <rect x="166" y="292" width="68" height="6" rx="3" className="fill-brand-700/55 dark:fill-brand-400/60" />
-          <rect x="156" y="298" width="88" height="6" rx="3" className="fill-brand-700/40 dark:fill-brand-400/45" />
-
-          {/* Hedgerow and a few flowers on the near lawn */}
-          <g className="fill-brand-500/55 dark:fill-brand-500/45">
-            {[46, 66, 86, 106, 126, 292, 314].map((x) => <circle key={x} cx={x} cy="297" r="9" />)}
-          </g>
-          {[[52, 320], [88, 328], [222, 320], [64, 340], [116, 346]].map(([x, y], i) => (
-            <circle key={`${x}-${y}`} cx={x} cy={y} r="3.5" fill={i % 2 ? 'var(--accent-400)' : 'var(--brand-300)'} opacity="0.85" />
-          ))}
-
-          {/* Pupils in the yard */}
-          {PUPILS.map((p) => (
-            <motion.g key={p.x} {...loop({ y: [0, -3, 0] }, 3.4, p.hop)}>
-              <circle cx={p.x} cy={p.y - 28} r="7.5" className="fill-brand-900 dark:fill-brand-100" />
-              <path d={`M${p.x - 8} ${p.y - 2} v-15 a8 8 0 0 1 16 0 v15 z`} className={p.body} />
-              <path d={`M${p.x - 3.5} ${p.y - 2} v7 M${p.x + 3.5} ${p.y - 2} v7`} className="stroke-brand-900 dark:stroke-brand-100" strokeWidth="2.5" strokeLinecap="round" />
-            </motion.g>
-          ))}
-          <circle cx="120" cy="330" r="5.5" fill="var(--accent-500)" opacity="0.9" />
-        </svg>
-      </div>
-
-      {HALO.map((h) => (
-        <motion.span
-          key={h.t}
-          className={`absolute ${h.pos} flex items-center gap-1.5 rounded-full border border-line bg-surface/90 px-3 py-1.5 text-[11px] font-semibold shadow-soft backdrop-blur`}
-          {...float(h.d)}
-        >
-          <h.icon className="h-3.5 w-3.5 text-brand-700 dark:text-brand-300" />{h.t}
-        </motion.span>
-      ))}
+            {/* 5 dot indicator horizontal kecil di kanan bawah gambar */}
+            <div className="flex items-center gap-1.5 shrink-0" role="tablist" aria-label="Slideshow indicator">
+              {HERO_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setCurrentSlide(i)}
+                  aria-label={`Lihat slide ${i + 1}`}
+                  className={cx(
+                    'h-1.5 rounded-full transition-all duration-300 cursor-pointer',
+                    currentSlide === i ? 'w-5 bg-emerald-400 shadow-xs' : 'w-1.5 bg-white/40 hover:bg-white/75'
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -10,6 +10,7 @@
  * - Identical 3D Avatar Voice Kiosk modal from logged-in user version
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, Link } from 'react-router-dom';
 import { getDeviceId, getHardwareSignals } from '../lib/deviceFingerprint';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -525,6 +526,11 @@ const Face = ({ className }: { className?: string }) => (
 );
 
 export function AleshaWidget() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const loc = useLocation();
   const { user, activeRole } = useAuth();
   const reduce = useReducedMotion();
@@ -849,7 +855,9 @@ export function AleshaWidget() {
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   const listeningInput = voiceState === 'listening' && listenTarget.current === 'input';
 
-  return (
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
     <>
       {/* 3D Avatar Voice Kiosk Modal (Identical to logged-in user experience) */}
       <AleshaKioskModal
@@ -869,12 +877,12 @@ export function AleshaWidget() {
 
 
       {/* Floating Trigger Button in bottom-right corner */}
-      <div className="group fixed bottom-6 right-6 z-40 flex items-center print:hidden">
-        {/* Tooltip hovering on trigger button */}
-        <div className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 translate-x-2 whitespace-nowrap rounded-2xl bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 text-xs text-white opacity-0 shadow-2xl transition-all group-hover:translate-x-0 group-hover:opacity-100 border border-brand-500/40 dark:bg-surface-3 dark:text-ink">
+      <div className="group fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center print:hidden">
+        {/* Tooltip hovering on trigger button (Desktop only to prevent mobile overflow) */}
+        <div className="hidden md:block pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 translate-x-2 whitespace-nowrap rounded-2xl bg-slate-900/95 backdrop-blur-md px-3.5 py-2.5 text-xs text-white opacity-0 shadow-2xl transition-all group-hover:translate-x-0 group-hover:opacity-100 border border-emerald-500/30">
           <p className="font-bold flex items-center gap-1.5 text-white">
             <span>{ALESHA_NAME} AI</span>
-            <span className="rounded-md bg-brand-500/30 border border-brand-400/30 px-1.5 py-0.5 text-[9px] font-semibold text-brand-300">
+            <span className="rounded-md bg-emerald-500/30 border border-emerald-400/30 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
               {isPortal ? 'Portal Materi' : 'Fitur SINAU'}
             </span>
           </p>
@@ -888,22 +896,49 @@ export function AleshaWidget() {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          aria-label={open ? 'Tutup Alesha' : 'Buka Alesha'}
+          aria-label={open ? 'Tutup Alesha AI' : 'Buka Alesha AI Chat'}
           aria-expanded={open}
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-brand-800 via-brand-700 to-accent-600 shadow-2xl transition-transform hover:scale-110 active:scale-95 cursor-pointer border border-brand-300/40 text-white"
-        >
-          {!open && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
-            </span>
+          className={cx(
+            'group/btn relative flex items-center gap-2 sm:gap-2.5 transition-all duration-300 cursor-pointer select-none active:scale-95 rounded-full',
+            open
+              ? 'h-11 w-11 sm:h-12 sm:w-12 bg-slate-900 text-white shadow-xl border border-white/20 hover:bg-slate-800 justify-center p-0'
+              : 'py-2 px-3 sm:py-2.5 sm:px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/40 hover:shadow-emerald-600/55 hover:scale-[1.02] border border-white/20'
           )}
+        >
           {open ? (
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white">
-              <X className="h-6 w-6" />
-            </span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full text-white">
+              <X className="h-5 w-5" />
+            </div>
           ) : (
-            <Face className="h-14 w-14" />
+            <>
+              {/* Avatar Orb with Bot Icon + Sparkles + Active Green Dot Ping */}
+              <div className="relative flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white shadow-xs">
+                <Bot className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white drop-shadow-xs" />
+                <Sparkles className="absolute -top-1 -right-1 h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-300 fill-amber-300 animate-pulse [animation-duration:1s]" />
+
+                {/* Status Dot Hijau Menyala Aktif dengan Ping Animation */}
+                <span className="absolute -bottom-0.5 -right-0.5 z-20 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75 [animation-duration:1.2s]" />
+                  <span className="relative inline-flex h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-emerald-400 ring-2 ring-emerald-800 shadow-xs" />
+                </span>
+              </div>
+
+              {/* Text Label: "Tanya Alesha AI" */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs sm:text-sm font-semibold tracking-tight text-white whitespace-nowrap">
+                  Tanya Alesha AI
+                </span>
+                <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white border border-white/25">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  Online
+                </span>
+              </div>
+
+              {/* Action Chevron/Arrow Indicator (Desktop) */}
+              <div className="hidden md:flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition-transform group-hover/btn:translate-x-0.5 ml-0.5">
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </>
           )}
         </button>
       </div>
@@ -920,7 +955,7 @@ export function AleshaWidget() {
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.96 }}
             transition={{ duration: 0.2 }}
             className={cx(
-              'fixed inset-0 z-40 flex flex-col overflow-hidden bg-surface shadow-2xl transition-all duration-300 sm:inset-auto sm:right-6 sm:rounded-3xl sm:border sm:border-line print:hidden',
+              'fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface shadow-2xl transition-all duration-300 sm:inset-auto sm:right-6 sm:rounded-3xl sm:border sm:border-line print:hidden',
               isExpanded
                 ? 'sm:bottom-8 sm:h-[620px] sm:max-h-[calc(100vh-4rem)] sm:w-[580px] md:w-[660px]'
                 : 'sm:bottom-20 sm:h-[460px] sm:max-h-[calc(100vh-8rem)] sm:w-[370px] md:w-[400px]'
@@ -1215,7 +1250,8 @@ export function AleshaWidget() {
           </motion.section>
         )}
       </AnimatePresence>
-    </>
+    </>,
+    document.body
   );
 }
 

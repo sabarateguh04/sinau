@@ -6,6 +6,7 @@ import { useAuth, homeOf } from '@/store/auth';
 import { Button, Field, Input } from '@/components/ui';
 import { api, toApiError } from '@/lib/api';
 import { toast } from '@/store/ui';
+import { SinauLogo } from '@/components/SinauLogo';
 import { pickRole } from './pickRole';
 
 export default function Login({ mode = 'login' }: { mode?: 'login' | 'reset' | 'invite' }) {
@@ -48,7 +49,9 @@ export default function Login({ mode = 'login' }: { mode?: 'login' | 'reset' | '
       <div className="relative hidden overflow-hidden bg-brand-800 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:p-8 xl:p-12">
         <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-brand-600/50 blur-3xl" />
         <div className="absolute -bottom-32 -right-24 h-[28rem] w-[28rem] rounded-full bg-accent-500/30 blur-3xl" />
-        <div className="relative flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-2xl font-black">S</div><div><div className="text-xl font-extrabold tracking-tight">SINAU</div><div className="text-xs text-white/70">{platform?.branding?.tagline ?? 'Learn. Teach. Improve. Grow.'}</div></div></div>
+        <Link to="/welcome" className="relative group flex items-center transition-opacity hover:opacity-95">
+          <SinauLogo size="md" onDarkBg tagline={platform?.branding?.tagline ?? 'Learn. Teach. Improve. Grow.'} />
+        </Link>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="relative space-y-5">
           <div>
             <h1 className="max-w-lg text-2xl font-extrabold leading-tight xl:text-4xl">Satu data belajar,<br />satu lapisan intelijen.</h1>
@@ -65,7 +68,9 @@ export default function Login({ mode = 'login' }: { mode?: 'login' | 'reset' | '
 
       <div className="flex items-center justify-center bg-surface-2 px-5 py-10">
         <motion.form onSubmit={submit} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card w-full max-w-md space-y-5 p-7 sm:p-9">
-          <div className="lg:hidden flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-700 font-black text-white">S</div><span className="text-lg font-extrabold">SINAU</span></div>
+          <Link to="/welcome" className="lg:hidden group flex items-center transition-opacity hover:opacity-95">
+            <SinauLogo size="sm" />
+          </Link>
           <div>
             <h2 className="text-2xl font-bold">{mode === 'login' ? (forgot ? 'Lupa kata sandi' : 'Masuk') : mode === 'reset' ? 'Atur ulang kata sandi' : 'Terima undangan'}</h2>
             <p className="mt-1 text-sm text-ink-2">{mode === 'login' ? (forgot ? 'Masukkan e-mail akun Anda.' : 'Gunakan nama pengguna dari sekolah/lembaga Anda.') : mode === 'reset' ? 'Buat kata sandi baru minimal 8 karakter.' : 'Tentukan nama pengguna dan kata sandi Anda.'}</p>
