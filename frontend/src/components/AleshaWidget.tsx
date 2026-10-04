@@ -65,10 +65,9 @@ export const DEFAULT_PORTAL_READ_SUGGESTIONS = [
 ];
 
 export const DEFAULT_WELCOME_READ_SUGGESTIONS = [
-  'Apa saja fitur utama di SINAU?',
-  'Bagaimana alur pembelajaran di SINAU?',
-  'Bagaimana cara mendaftar ke SINAU?',
-  'Apa keunggulan AI tutor Alesha?',
+  'Saya sedang mencari lembaga kursus',
+  'Saya mau membuka lembaga kursus & Privat',
+  'Sekolah saya mau menggunakan sinau sebagai media pembelajaran Online.',
 ];
 
 export function isWriteRequest(rawText: string): boolean {
@@ -128,10 +127,9 @@ const getWelcomeMsg = (pathname: string, userName?: string | null): Msg => {
     role: 'assistant',
     content: `Halo${greeting}! 👋 Selamat datang di **SINAU**.\n\nSaya **Alesha**, asisten cerdas platform ini. Saya siap menjelaskan fitur-fitur pembelajaran, keunggulan sistem, alur PPDB, serta informasi lembaga di SINAU. Ada yang ingin Anda ketahui seputar SINAU?`,
     suggestions: [
-      'Apa saja fitur utama di SINAU?',
-      'Bagaimana alur pembelajaran di SINAU?',
-      'Apa itu Absorption Heatmap?',
-      'Bagaimana peran Guru & Siswa di SINAU?',
+      'Saya sedang mencari lembaga kursus',
+      'Saya mau membuka lembaga kursus & Privat',
+      'Sekolah saya mau menggunakan sinau sebagai media pembelajaran Online.',
     ],
   };
 };
@@ -791,7 +789,7 @@ export function AleshaWidget() {
             role: 'assistant',
             content:
               'Mohon maaf, saat ini asisten Alesha sedang dalam proses pembaruan data sistem. Silakan coba kembali sesaat lagi.',
-            suggestions: isPortal ? ['Materi publik apa saja yang ada?'] : ['Apa saja fitur SINAU?'],
+            suggestions: isPortal ? ['Materi publik apa saja yang ada?'] : DEFAULT_WELCOME_READ_SUGGESTIONS,
           },
         ]);
         setThinking(false);
