@@ -80,33 +80,38 @@ export function speak(text: string, onEnd?: () => void): () => void {
  * 3. Default fallback: https://alesha-be.djalu.co.id
  */
 export function getAleshaApiBase(): string {
-  const envUrl = (import.meta as any).env?.VITE_ALESHA_API_URL;
-  if (envUrl) return envUrl;
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const host = window.location.hostname;
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      const proto = window.location.protocol || 'http:';
-      return `${proto}//${host}:8000`;
+    // When on ngrok, localhost, or same-origin, use relative path so requests go through Sinau proxy to local 8000!
+    if (host.includes('ngrok') || host === 'localhost' || host === '127.0.0.1') {
+      return '';
     }
+    // If accessed from other devices via LAN IP
+    const proto = window.location.protocol || 'http:';
+    return `${proto}//${host}:8000`;
   }
-  return 'https://alesha-be.djalu.co.id';
+  const envUrl = (import.meta as any).env?.VITE_ALESHA_API_URL;
+  if (envUrl) return envUrl;
+  return '';
 }
 
 /**
  * Resolves the Alesha 3D Avatar Kiosk URL.
  * Automatically adapts:
- * 1. Explicit VITE_ALESHA_KIOSK_URL environment variable if set.
- * 2. Default: https://alesha.djalu.co.id/kiosk-public
+ * 1. ngrok / LAN bridge access from mobile devices.
+ * 2. Explicit VITE_ALESHA_KIOSK_URL environment variable if set.
+ * 3. Default: https://alesha.djalu.co.id/kiosk-public
  */
 export function getAleshaKioskUrl(): string {
-  const envUrl = (import.meta as any).env?.VITE_ALESHA_KIOSK_URL;
-  if (envUrl) return envUrl;
   if (typeof window !== 'undefined' && window.location?.hostname) {
     const host = window.location.hostname;
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      const proto = window.location.protocol || 'http:';
-      return `${proto}//${host}:3000/kiosk-public`;
+    if (host.includes('ngrok') || host === 'localhost' || host === '127.0.0.1') {
+      return '/kiosk-public';
     }
+    const proto = window.location.protocol || 'http:';
+    return `${proto}//${host}:8000/kiosk-public`;
   }
-  return 'https://alesha.djalu.co.id/kiosk-public';
+  const envUrl = (import.meta as any).env?.VITE_ALESHA_KIOSK_URL;
+  if (envUrl) return envUrl;
+  return '/kiosk-public';
 }

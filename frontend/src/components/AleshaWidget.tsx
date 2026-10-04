@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, Link } from 'react-router-dom';
-import { getClientIps } from '../lib/deviceFingerprint';
+import { getDeviceId, getHardwareSignals, getClientIps } from '../lib/deviceFingerprint';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AudioLines,
@@ -593,17 +593,23 @@ export function AleshaWidget() {
 
   useEffect(() => saveMessages(messages), [messages]);
 
-  // Sync quota from backend (strictly tied to IP address: IPv4 & IPv6)
+  // Sync quota from backend (tied to Micro-Hardware Fingerprint + Device Category)
   const syncDeviceQuota = useCallback(async () => {
     try {
       const aleshaApiBase = getAleshaApiBase();
+      const signals = await getHardwareSignals();
+      const devId = signals.clusterId;
       const ips = await getClientIps();
       const q = new URLSearchParams();
       q.set('mode', 'chat');
+      q.set('device_id', devId);
+      q.set('device_category', signals.deviceCategory);
       if (ips.ipv4) q.set('ipv4', ips.ipv4);
       if (ips.ipv6) q.set('ipv6', ips.ipv6);
       const res = await fetch(`${aleshaApiBase}/api/chat/sinau/public-quota?${q.toString()}`, {
         headers: {
+          'X-Device-Id': devId,
+          'X-Device-Category': signals.deviceCategory,
           ...(ips.ipv4 ? { 'X-Client-IPv4': ips.ipv4 } : {}),
           ...(ips.ipv6 ? { 'X-Client-IPv6': ips.ipv6 } : {}),
         },
@@ -716,10 +722,14 @@ export function AleshaWidget() {
       const aleshaApiBase = getAleshaApiBase();
 
       try {
+        const signals = await getHardwareSignals();
+        const devId = signals.clusterId;
         const ips = await getClientIps();
         const payload = {
           message: content,
           mode: 'chat',
+          device_id: devId,
+          device_category: signals.deviceCategory,
           ipv4: ips.ipv4,
           ipv6: ips.ipv6,
           user_role: activeRole || user?.roles?.[0] || 'user_umum',
@@ -733,6 +743,8 @@ export function AleshaWidget() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-Device-Id': devId,
+            'X-Device-Category': signals.deviceCategory,
             ...(ips.ipv4 ? { 'X-Client-IPv4': ips.ipv4 } : {}),
             ...(ips.ipv6 ? { 'X-Client-IPv6': ips.ipv6 } : {}),
           },

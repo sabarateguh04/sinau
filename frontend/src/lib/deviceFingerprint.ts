@@ -2,13 +2,15 @@
  * Alesha Pure Hardware Profile Clustering (HDP) Generator
  * 
  * Extracts physical hardware invariants independent of browser engine, network, or profile:
- * 1. GPU Physical Identifier (WebGL Unmasked Renderer normalized to true physical VGA/GPU chip)
- * 2. Display Specs (Physical Screen Resolution snapped to standard monitor panels)
- * 3. CPU Architecture (navigator.hardwareConcurrency)
- * 4. System Timezone (Intl.DateTimeFormat().resolvedOptions().timeZone)
+ * 1. Device Category (Desktop vs Mobile vs Tablet)
+ * 2. GPU Physical Identifier (WebGL Unmasked Renderer normalized to true physical chip)
+ * 3. Display Specs (Physical Screen Resolution snapped to standard monitor/phone panels)
+ * 4. Micro-Canvas 2D Fingerprint (Subpixel GPU/anti-aliasing silicon rasterization)
+ * 5. Micro-AudioContext Fingerprint (OfflineAudioContext DynamicsCompressor DSP math)
+ * 6. System Timezone (Intl.DateTimeFormat().resolvedOptions().timeZone)
  * 
  * Formula:
- * Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
+ * Hardware_Cluster_ID = SHA256(Category + GPU + Screen_Res + Canvas_Hash + Audio_Hash + Timezone)
  */
 
 let cachedClusterId: string | null = null;
@@ -97,6 +99,48 @@ async function hashString(str: string): Promise<string> {
   return sha256Sync(str).slice(0, 24);
 }
 
+export type DeviceCategory = 'desktop' | 'mobile' | 'tablet';
+
+/**
+ * Accurately detects whether visitor access is from a PC/Desktop or Mobile Phone / Tablet.
+ */
+export function getDeviceCategory(): DeviceCategory {
+  if (typeof navigator === 'undefined') return 'desktop';
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const maxTouch = navigator.maxTouchPoints || 0;
+
+  // Tablets
+  if (ua.includes('ipad') || (ua.includes('macintosh') && maxTouch > 1)) {
+    return 'tablet';
+  }
+  if (ua.includes('android') && !ua.includes('mobile')) {
+    return 'tablet';
+  }
+
+  // Mobile phones
+  if (
+    ua.includes('mobile') ||
+    ua.includes('iphone') ||
+    ua.includes('ipod') ||
+    ua.includes('android') ||
+    ua.includes('blackberry') ||
+    ua.includes('windows phone')
+  ) {
+    return 'mobile';
+  }
+
+  // Screen-size fallback for touch devices
+  if (maxTouch > 0 && typeof window !== 'undefined' && window.screen) {
+    const w = window.screen.width || 0;
+    const h = window.screen.height || 0;
+    if (Math.min(w, h) <= 600) {
+      return 'mobile';
+    }
+  }
+
+  return 'desktop';
+}
+
 /**
  * Normalizes physical GPU silicon chipset across browsers.
  * Eliminates browser-specific ANGLE / Direct3D / OpenGL / driver wrappers.
@@ -104,7 +148,20 @@ async function hashString(str: string): Promise<string> {
 export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): string {
   const s = ((rawVendor || '') + ' ' + (rawRenderer || '')).toLowerCase();
 
-  // 1. Intel
+  // 1. Mobile Chips (Qualcomm, ARM Mali, Apple, PowerVR)
+  if (s.includes('adreno')) {
+    const m = s.match(/adreno\s*(?:\(tm\)\s*)?(\d{3,4}[a-z]*)/);
+    return m ? ('Qualcomm Adreno ' + m[1].toUpperCase()) : 'Qualcomm Adreno GPU';
+  }
+  if (s.includes('mali')) {
+    const m = s.match(/mali\s*[-_]?([a-z]?\d{2,4}(?:[-_][a-z0-9]+)?)/);
+    return m ? ('ARM Mali ' + m[1].toUpperCase()) : 'ARM Mali GPU';
+  }
+  if (s.includes('powervr') || s.includes('sgx')) {
+    return 'PowerVR GPU';
+  }
+
+  // 2. Intel
   if (s.includes('iris') && s.includes('xe')) {
     return 'Intel Iris Xe Graphics';
   }
@@ -124,7 +181,7 @@ export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): strin
     return 'Intel Integrated Graphics';
   }
 
-  // 2. NVIDIA
+  // 3. NVIDIA
   if (s.includes('rtx')) {
     const m = s.match(/rtx\s*(\d{3,4}(?:\s*ti)?)/);
     return m ? ('NVIDIA GeForce RTX ' + m[1].replace(/\s+/g, ' ').toUpperCase()) : 'NVIDIA GeForce RTX';
@@ -137,7 +194,7 @@ export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): strin
     return 'NVIDIA GeForce Graphics';
   }
 
-  // 3. AMD
+  // 4. AMD
   if (s.includes('radeon')) {
     const m = s.match(/radeon\s*(?:rx\s*)?(\d{3,4}[a-z]*)/);
     return m ? ('AMD Radeon ' + m[1].toUpperCase()) : 'AMD Radeon Graphics';
@@ -146,13 +203,13 @@ export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): strin
     return 'AMD Radeon Graphics';
   }
 
-  // 4. Apple Silicon
+  // 5. Apple Silicon
   if (s.includes('apple') || s.match(/m[1-4]/)) {
     const m = s.match(/m[1-4](?:\s*(?:pro|max|ultra))?/);
     return m ? ('Apple Silicon ' + m[0].toUpperCase()) : 'Apple Silicon GPU';
   }
 
-  // 5. Fallback: normalize tokens
+  // 6. Fallback: normalize tokens
   const cleanTokens = s
     .replace(/google|mozilla|microsoft|angle|direct3d\d*|d3d\d*|opengl|vulkan|metal|vs_\d+_\d+|ps_\d+_\d+|\(.*?\)|\[.*?\]|[^a-z0-9]/g, ' ')
     .split(/\s+/)
@@ -161,8 +218,8 @@ export function normalizeGpu(rawRenderer: string, rawVendor: string = ''): strin
 }
 
 /**
- * Returns physical monitor display resolution.
- * Snaps to standard monitor panels to be 100% immune to browser zoom / DPI differences.
+ * Returns physical monitor / screen display resolution.
+ * Snaps to standard monitor & mobile panels to remain immune to browser zoom / DPI differences.
  */
 export function getPhysicalScreen(): string {
   try {
@@ -182,21 +239,32 @@ export function getPhysicalScreen(): string {
       let maxDim = Math.max(pW, pH);
       let minDim = Math.min(pW, pH);
 
-      // Known physical monitor panel dimensions
+      // Known physical monitor & mobile display panel dimensions
       const standardPanels: [number, number][] = [
+        // Desktop & Laptop Panels
         [3840, 2160], // 4K UHD
-        [2880, 1800], // Retina
+        [2880, 1800], // Retina 15/16
         [2560, 1600], // WQXGA 16:10
         [2560, 1440], // 2K QHD 16:9
         [2240, 1400], // 2.2K
-        [1920, 1200], // WUXGA 16:10 (16:10 Laptop Screen)
+        [1920, 1200], // WUXGA 16:10
         [1920, 1080], // Full HD 16:9
         [1680, 1050], // WSXGA+
         [1600, 900],  // HD+
         [1440, 900],  // WXGA+
-        [1366, 768],  // HD
+        [1366, 768],  // HD Standard
         [1280, 800],  // WXGA
         [1280, 720],  // 720p HD
+
+        // Mobile Phone Panels (Max x Min)
+        [2796, 1290], // iPhone Pro Max (14/15/16)
+        [2556, 1179], // iPhone Pro (14/15/16)
+        [2532, 1170], // iPhone 12/13/14
+        [2400, 1080], // Android FHD+ (20:9)
+        [2340, 1080], // Android FHD+ (19.5:9)
+        [1792, 828],  // iPhone 11 / XR
+        [1600, 720],  // Android HD+ (20:9)
+        [1334, 750],  // iPhone SE / 8
       ];
 
       for (const [sW, sH] of standardPanels) {
@@ -210,7 +278,7 @@ export function getPhysicalScreen(): string {
       return String(maxDim) + 'x' + String(minDim) + 'x24';
     }
   } catch (_) {}
-  return '1920x1200x24';
+  return '1920x1080x24';
 }
 
 export function getCpuCores(): number {
@@ -229,21 +297,112 @@ export function getTimezone(): string {
   return 'Asia/Jakarta';
 }
 
+/**
+ * Micro-Canvas 2D Fingerprint:
+ * Extracts subpixel GPU & font anti-aliasing characteristic.
+ * 100% identical between Chrome & Edge on the same machine, but differs across distinct hardware/graphics chipsets.
+ */
+export function getCanvasFingerprint(): string {
+  try {
+    if (typeof document === 'undefined') return 'cvs_none';
+    const canvas = document.createElement('canvas');
+    canvas.width = 240;
+    canvas.height = 60;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 'cvs_no_ctx';
+
+    // Multi-font text with colored background and emoji
+    ctx.textBaseline = 'top';
+    ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(120, 1, 65, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('Alesha AI SINAU 🚀 🌟 12345', 2, 14);
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+    ctx.fillText('Platform Pintar Sekolah & Kursus', 4, 36);
+
+    // Multi-color gradient stroke arc
+    const grad = ctx.createLinearGradient(0, 0, 240, 0);
+    grad.addColorStop(0, '#ff0055');
+    grad.addColorStop(0.5, '#00ccff');
+    grad.addColorStop(1, '#00ff66');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(50, 45, 12, 0, Math.PI * 2, true);
+    ctx.stroke();
+
+    return sha256Sync(canvas.toDataURL()).slice(0, 16);
+  } catch (_) {
+    return 'cvs_fallback';
+  }
+}
+
+/**
+ * Micro-AudioContext Fingerprint:
+ * Headless, silent floating-point DSP dynamics compression.
+ * Executed via OfflineAudioContext in 15-25ms.
+ */
+export async function getAudioFingerprint(): Promise<string> {
+  try {
+    if (typeof window === 'undefined') return 'aud_none';
+    const AudioCtx =
+      window.OfflineAudioContext ||
+      (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+    if (!AudioCtx) return 'aud_no_api';
+
+    const context = new AudioCtx(1, 44100, 44100);
+    const oscillator = context.createOscillator();
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = 10000;
+
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -50;
+    compressor.knee.value = 40;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.25;
+
+    oscillator.connect(compressor);
+    compressor.connect(context.destination);
+    oscillator.start(0);
+
+    const renderPromise = context.startRendering();
+    const timeoutPromise = new Promise<null>((res) => setTimeout(() => res(null), 300));
+    const audioBuffer = await Promise.race([renderPromise, timeoutPromise]);
+
+    if (!audioBuffer) return 'aud_timeout';
+
+    const channelData = audioBuffer.getChannelData(0);
+    let sum = 0;
+    for (let i = 4500; i < 5000; i++) {
+      sum += Math.abs(channelData[i]);
+    }
+    return sha256Sync(String(sum)).slice(0, 16);
+  } catch (_) {
+    return 'aud_fallback';
+  }
+}
+
 export interface HardwareProfileSignals {
+  deviceCategory: DeviceCategory;
   gpuRenderer: string;
   screenRes: string;
   cpuCores: number;
   timezone: string;
+  canvasFingerprint: string;
+  audioFingerprint: string;
   rawSignature: string;
   clusterId: string;
 }
 
 /**
  * Extracts raw hardware signals and forms the Pure Hardware Profile Cluster ID:
- * Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + CPU_Cores + Timezone)
+ * Hardware_Cluster_ID = SHA256(Category + GPU + Screen_Res + Canvas + Audio + Timezone)
  */
 export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
-  let gpuRenderer = 'Intel Iris Xe Graphics';
+  const deviceCategory = getDeviceCategory();
+  let gpuRenderer = deviceCategory === 'mobile' ? 'Qualcomm Adreno GPU' : 'Intel Integrated Graphics';
   try {
     const canvas = document.createElement('canvas');
     const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
@@ -263,19 +422,22 @@ export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
   const screenRes = getPhysicalScreen();
   const cpuCores = getCpuCores();
   const timezone = getTimezone();
+  const canvasFingerprint = getCanvasFingerprint();
+  const audioFingerprint = await getAudioFingerprint();
 
-  // Formula: Hardware_Cluster_ID = SHA256(GPU_Renderer + Screen_Res + Timezone)
-  // Omitting raw CPU core count ensures 100% bit-for-bit cross-browser identity
-  // between Chrome (16 cores) and Firefox (privacy capped to 8 cores).
-  const rawSignature = gpuRenderer + '|' + screenRes + '|' + timezone;
+  // Signature: Category + GPU + Screen + Canvas + Audio + Timezone
+  const rawSignature = `${deviceCategory}|${gpuRenderer}|${screenRes}|${canvasFingerprint}|${audioFingerprint}|${timezone}`;
   const hash = await hashString(rawSignature);
-  const clusterId = 'hdp_' + hash;
+  const clusterId = `hdp_${hash.slice(0, 18)}`;
 
   return {
+    deviceCategory,
     gpuRenderer,
     screenRes,
     cpuCores,
     timezone,
+    canvasFingerprint,
+    audioFingerprint,
     rawSignature,
     clusterId,
   };
@@ -283,7 +445,7 @@ export async function getHardwareSignals(): Promise<HardwareProfileSignals> {
 
 /**
  * Primary Device Identifier for public visitor quota enforcement.
- * 100% identical in Chrome, Firefox, Edge, Brave, Incognito, and normal modes.
+ * Deterministic and cross-browser on the same machine without using local storage tokens.
  */
 export async function getDeviceId(): Promise<string> {
   if (cachedClusterId) {
@@ -298,16 +460,12 @@ export async function getDeviceId(): Promise<string> {
   cachedClusterId = signals.clusterId;
 
   try {
-    localStorage.setItem('alesha_device_id', signals.clusterId);
-    localStorage.setItem('alesha_hdp_id', signals.clusterId);
-  } catch (_) {}
-  try {
-    document.cookie = 'alesha_device_id=' + encodeURIComponent(signals.clusterId) + '; path=/; max-age=31536000; SameSite=Lax';
+    sessionStorage.setItem('alesha_device_id', signals.clusterId);
+    sessionStorage.setItem('alesha_hdp_id', signals.clusterId);
   } catch (_) {}
 
   return signals.clusterId;
 }
-
 
 export interface ClientIps {
   ipv4?: string;
@@ -332,20 +490,6 @@ export async function getClientIps(): Promise<ClientIps> {
   ipFetchPromise = (async () => {
     let ipv4: string | undefined;
     let ipv6: string | undefined;
-
-    // Check sessionStorage / localStorage first
-    try {
-      if (typeof window !== 'undefined') {
-        const stored = sessionStorage.getItem('alesha_client_ips') || localStorage.getItem('alesha_client_ips');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && typeof parsed === 'object') {
-            if (parsed.ipv4) ipv4 = parsed.ipv4;
-            if (parsed.ipv6) ipv6 = parsed.ipv6;
-          }
-        }
-      }
-    } catch (_) {}
 
     // Fetch IPv4 with 2.5s timeout
     const fetchIpv4 = async (): Promise<string | undefined> => {
@@ -396,13 +540,6 @@ export async function getClientIps(): Promise<ClientIps> {
     }
 
     cachedIps = { ipv4, ipv6 };
-    try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('alesha_client_ips', JSON.stringify(cachedIps));
-        localStorage.setItem('alesha_client_ips', JSON.stringify(cachedIps));
-      }
-    } catch (_) {}
-
     return cachedIps;
   })();
 
